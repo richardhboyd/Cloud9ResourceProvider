@@ -1,0 +1,10 @@
+{
+    "typeName": "Richard::Cloud9::Environment",
+    "language": "python37",
+    "runtime": "python3.7",
+    "entrypoint": "richard_cloud9_environment.handlers.resource",
+    "testEntrypoint": "richard_cloud9_environment.handlers.test_entrypoint",
+    "settings": {
+        "use_docker": true
+    }
+}

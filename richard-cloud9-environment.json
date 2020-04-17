@@ -1,0 +1,121 @@
+{
+    "typeName": "Richard::Cloud9::Environment",
+    "description": "An example resource schema demonstrating some basic constructs and validation rules.",
+    "sourceUrl": "https://github.com/aws-cloudformation/aws-cloudformation-rpdk.git",
+    "definitions": {
+        "InitechDateFormat": {
+            "$comment": "Use the `definitions` block to provide shared resource property schemas",
+            "type": "string",
+            "format": "date-time"
+        },
+        "Memo": {
+            "type": "object",
+            "properties": {
+                "Heading": {
+                    "type": "string"
+                },
+                "Body": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false
+        }
+    },
+    "properties": {
+        "InstanceId": {
+            "description": "EC2 Instance Id used by the underlying EC2 instance.",
+            "type": "string",
+            "pattern": "^i-[a-z0-9]{17}$"
+        },
+        "Name": {
+            "description": "The name to give to the Cloud9 Environment.",
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 50
+        },
+        "InstanceType": {
+            "description": "The EC2 instance type to use.",
+            "type": "string",
+            "pattern": "^[a-z][1-9][.][a-z0-9]+$"
+        },
+        "Description": {
+            "description": "The description of the TPS report is an optional element.",
+            "type": "string",
+            "minimum": 20,
+            "maximum": 250
+        },
+        "EBSVolumeSize": {
+            "description": "The size for the underlying EBS Volume.",
+            "type": "integer",
+            "minimum": 10,
+            "maximum": 250
+        },
+        "CoverSheetIncluded": {
+            "description": "Required for all TPS Reports submitted after 2/19/1999",
+            "type": "boolean"
+        },
+        "DueDate": {
+            "$ref": "#/definitions/InitechDateFormat"
+        },
+        "ApprovalDate": {
+            "$ref": "#/definitions/InitechDateFormat"
+        },
+        "Memo": {
+            "$ref": "#/definitions/Memo"
+        },
+        "SecondCopyOfMemo": {
+            "description": "In case you didn't get the first one.",
+            "$ref": "#/definitions/Memo"
+        },
+        "TestCode": {
+            "type": "string",
+            "enum": [
+                "NOT_STARTED",
+                "CANCELLED"
+            ]
+        },
+        "Authors": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "additionalProperties": false,
+    "required": [
+        "InstanceType"
+    ],
+    "readOnlyProperties": [
+        "/properties/TPSCode"
+    ],
+    "primaryIdentifier": [
+        "/properties/TPSCode"
+    ],
+    "handlers": {
+        "create": {
+            "permissions": [
+                "initech:CreateReport"
+            ]
+        },
+        "read": {
+            "permissions": [
+                "initech:DescribeReport"
+            ]
+        },
+        "update": {
+            "permissions": [
+                "initech:UpdateReport"
+            ]
+        },
+        "delete": {
+            "permissions": [
+                "initech:DeleteReport"
+            ]
+        },
+        "list": {
+            "permissions": [
+                "initech:ListReports"
+            ]
+        }
+    }
+}
