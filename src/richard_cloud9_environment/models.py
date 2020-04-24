@@ -44,7 +44,7 @@ class ResourceModel(BaseModel):
     InstanceType: Optional[str]
     Description: Optional[str]
     EBSVolumeSize: Optional[int]
-    CoverSheetIncluded: Optional[bool]
+    UserData: Optional[str]
     DueDate: Optional[str]
     ApprovalDate: Optional[str]
     Memo: Optional["_Memo"]
@@ -67,7 +67,7 @@ class ResourceModel(BaseModel):
             InstanceType=json_data.get("InstanceType"),
             Description=json_data.get("Description"),
             EBSVolumeSize=json_data.get("EBSVolumeSize"),
-            CoverSheetIncluded=json_data.get("CoverSheetIncluded"),
+            UserData=json_data.get("UserData"),
             DueDate=json_data.get("DueDate"),
             ApprovalDate=json_data.get("ApprovalDate"),
             Memo=Memo._deserialize(json_data.get("Memo")),

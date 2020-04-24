@@ -50,12 +50,13 @@
             "minimum": 10,
             "maximum": 250
         },
-        "CoverSheetIncluded": {
-            "description": "Required for all TPS Reports submitted after 2/19/1999",
-            "type": "boolean"
+        "UserData": {
+            "description": "Bootstrapping script to send to the Instance",
+            "type": "string"
         },
-        "DueDate": {
-            "$ref": "#/definitions/InitechDateFormat"
+        "Async": {
+            "description": "When set to true, CFN won't wait for userdata to finish before returning",
+            "type": "boolean"
         },
         "ApprovalDate": {
             "$ref": "#/definitions/InitechDateFormat"
