@@ -53,6 +53,10 @@
         "UserData": {
             "description": "Bootstrapping script to send to the Instance",
             "type": "string"
+        },
+        "EnvironmentId": {
+            "description": "Cloud9 Environment Id",
+            "type": "string"
         }
     },
     "additionalProperties": false,

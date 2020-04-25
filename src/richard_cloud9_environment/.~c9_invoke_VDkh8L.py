@@ -86,10 +86,9 @@ class Router(object):
         return method(request, callback_context, session)
  
     def ENVIRONMENT_CREATED(self, request, callback_context, session) -> ProgressEvent:
-        model: ResourceModel = callback_context["MODEL"]
         progress: ProgressEvent = ProgressEvent(
             status=OperationStatus.IN_PROGRESS,
-            resourceModel=model,
+            resourceModel=request.desiredResourceState,
             callbackContext=callback_context,
             callbackDelaySeconds=15
         )
@@ -106,25 +105,23 @@ class Router(object):
             LOG.info("Checking Environment and instance status")
             if (environment_status['status'] == 'ready') and (instance_state == 'running'):
                 LOG.info("environment is ready and instance is running")
-                progress.callbackContext["MODEL"]["InstanceId"] = instance_id
-                progress.callbackContext["INSTANCE_ID"] = instance_id
                 progress.callbackContext["LOCAL_STATUS"] = ProvisioningStatus.INSTANCE_STABLE
+                progress.callbackContext["MODEL"].InstanceId = instance_id
+                progress.resourceModel: ResourceModel = progress.callbackContext["MODEL"]
+                
         except Exception as e:
             LOG.info('throwing: {}'.format(e))
-            raise(e)
-        progress.resourceModel: ResourceModel = progress.callbackContext["MODEL"]
         LOG.info("returning progress from ENVIRONMENT_CREATED {}".format(progress))
         return progress
  
     def INSTANCE_STABLE(self, request, callback_context, session) -> ProgressEvent:
-        model: ResourceModel = callback_context["MODEL"]
         progress: ProgressEvent = ProgressEvent(
             status=OperationStatus.IN_PROGRESS,
-            resourceModel=model,
+            resourceModel=request.desiredResourceState,
             callbackContext=callback_context,
-            callbackDelaySeconds=15
+            callbackDelaySeconds=30
         )
-        instance_id = progress.callbackContext["INSTANCE_ID"]
+        instance_id = callback_context["MODEL"].InstanceId
         try: 
             ec2_client = session.client("ec2")
             if request.desiredResourceState.EBSVolumeSize:
@@ -132,21 +129,18 @@ class Router(object):
             progress.callbackContext["LOCAL_STATUS"] = ProvisioningStatus.RESIZED_INSTANCE
         except Exception as e:
             LOG.info('Can\'t resize instance: {}'.format(e))
-            raise(e)
         progress.resourceModel: ResourceModel = progress.callbackContext["MODEL"]
         return progress
 
     def RESIZED_INSTANCE(self, request, callback_context, session) -> ProgressEvent:
-        model: ResourceModel = callback_context["MODEL"]
         progress: ProgressEvent = ProgressEvent(
             status=OperationStatus.IN_PROGRESS,
-            resourceModel=model,
+            resourceModel=request.desiredResourceState,
             callbackContext=callback_context,
-            callbackDelaySeconds=15
+            callbackDelaySeconds=30
         )
         LOG.info("starting RESIZED_INSTANCE with progress\n{}\nand request\n{}".format(progress, request))
-        model: ResourceModel = progress.resourceModel
-        instance_id = progress.callbackContext["INSTANCE_ID"]
+        instance_id = progress.callbackContext["MODEL"].InstanceId
         LOG.info("instance id: {}".format(instance_id))
         ec2_client = session.client("ec2")
         instances = ec2_client.describe_instances(InstanceIds=[instance_id])
@@ -162,15 +156,16 @@ class Router(object):
         return progress
  
     def STOPPED_INSTANCE(self, request, callback_context, session) -> ProgressEvent:
-        model: ResourceModel = callback_context["MODEL"]
+        LOG.info("Entering STOPPED_INSTANCE State")
         progress: ProgressEvent = ProgressEvent(
             status=OperationStatus.IN_PROGRESS,
-            resourceModel=model,
+            resourceModel=request.desiredResourceState,
             callbackContext=callback_context,
-            callbackDelaySeconds=15
+            callbackDelaySeconds=30
         )
         LOG.info("starting STOPPED_INSTANCE with progress\n{}\nand request\n{}".format(progress, request))
-        instance_id = progress.callbackContext["INSTANCE_ID"]
+        instance_id = progress.callbackContext["MODEL"].InstanceId
+        commands = ['sudo growpart /dev/xvda 1; sudo resize2fs /dev/xvda1 || sudo resize2fs /dev/nvme0n1p1']
         ec2_client = session.client("ec2")
         # Verify that the instance is stopped
         instance_filter = ec2_client.describe_instances(Filters=[{'Name':'tag:aws:cloud9:environment', 'Values': [callback_context["ENVIRONMENT_ID"]]}])
@@ -182,7 +177,7 @@ class Router(object):
             LOG.info("instance stopped. Attempting to get current UserData from {}".format(instance_id))
             get_userdata_response = ec2_client.describe_instance_attribute(Attribute='userData', InstanceId=instance_id)
             user_data = base64.b64decode(get_userdata_response['UserData']['Value']).decode("utf-8")
-            final_user_data = get_preamble() + user_data + base64.b64decode(request.desiredResourceState.UserData).decode("utf-8")
+            final_user_data = get_preamble() + user_data + base64.b64decode(progress.resourceModel.UserData).decode("utf-8")
             ec2_client.modify_instance_attribute(InstanceId=instance_id, UserData={'Value': final_user_data})
             ec2_client.start_instances(InstanceIds=[instance_id])
             progress.callbackContext["LOCAL_STATUS"] = ProvisioningStatus.RESTARTED_INSTANCE
@@ -192,24 +187,24 @@ class Router(object):
         return progress
 
     def RESTARTED_INSTANCE(self, request, callback_context, session) -> ProgressEvent:
-        model: ResourceModel = callback_context["MODEL"]
         progress: ProgressEvent = ProgressEvent(
             status=OperationStatus.IN_PROGRESS,
-            resourceModel=model,
+            resourceModel=request.desiredResourceState,
             callbackContext=callback_context,
-            callbackDelaySeconds=15
+            callbackDelaySeconds=30
         )
         LOG.info("starting RESTARTED_INSTANCE with progress\n{}\nand request\n{}".format(progress, request))
-        instance_id = progress.callbackContext["INSTANCE_ID"]
+        instance_id = progress.callbackContext["MODEL"].InstanceId
         ec2_client = session.client("ec2")
         instances = ec2_client.describe_instances(InstanceIds=[instance_id])
-        LOG.info("Getting Instance State")
+        LOG.info("Getting Instance ID")
         instance_state = instances['Reservations'][0]['Instances'][0]['State']['Name']
         if instance_state == 'running':
             LOG.info("Instance is running")
             progress.status = OperationStatus.SUCCESS
+            progress.resourceModel.InstanceId = progress.callbackContext["INSTANCE_ID"]
         LOG.info("returning progress from RESTARTED_INSTANCE {}".format(progress))
-        progress.resourceModel = progress.callbackContext["MODEL"]
+        progress.resourceModel: ResourceModel = progress.callbackContext["MODEL"]
         return progress
 
 @resource.handler(Action.CREATE)
@@ -234,7 +229,7 @@ def create_handler(session: Optional[SessionProxy], request: ResourceHandlerRequ
                     instanceType=request.desiredResourceState.InstanceType
                 )
                 LOG.info("environment id: {}".format(response['environmentId']))
-                progress.callbackContext["MODEL"]: ResourceModel = json.dumps(request.desiredResourceState)
+                progress.callbackContext["MODEL"]: ResourceModel = request.desiredResourceState
                 progress.callbackContext["MODEL"].Name = env_name
                 progress.callbackContext["MODEL"].EnvironmentId = response['environmentId']
                 progress.callbackContext["ENVIRONMENT_ID"] = response['environmentId']

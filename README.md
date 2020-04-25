@@ -17,9 +17,7 @@ sudo rm -rf /etc/alternatives/python
 sudo ln -s /usr/local/bin/pip${VERSION:0:3} /etc/alternatives/pip
 sudo ln -s /usr/local/bin/python${VERSION:0:3} /etc/alternatives/python
 
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/Linuxbrew/install/master/install.sh)"
-#### BREAK
-
+CI=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
 test -d ~/.linuxbrew && eval $(~/.linuxbrew/bin/brew shellenv)
 test -d /home/linuxbrew/.linuxbrew && eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
 test -r ~/.bash_profile && echo "eval \$($(brew --prefix)/bin/brew shellenv)" >>~/.bash_profile
@@ -35,6 +33,9 @@ ls -la ~/.c9/bin/sam
 
 pip install cloudformation-cli --user
 pip install git+https://github.com/aws-cloudformation/aws-cloudformation-rpdk-python-plugin.git#egg=cloudformation-cli-python-plugin --user
+
+cfn submit --set-default
+aws cloudformation deploy --template-file tests/integ-final.yaml --stack-name LateOtter001
 ````
 
 Failures can be passed back to CloudFormation by either raising an exception from `cloudformation_cli_python_lib.exceptions`, or setting the ProgressEvent's `status` to `OperationStatus.FAILED` and `errorCode` to one of `cloudformation_cli_python_lib.HandlerErrorCode`. There is a static helper function, `ProgressEvent.failed`, for this common case.

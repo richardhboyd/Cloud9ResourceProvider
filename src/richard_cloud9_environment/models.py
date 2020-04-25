@@ -45,6 +45,7 @@ class ResourceModel(BaseModel):
     Description: Optional[str]
     EBSVolumeSize: Optional[int]
     UserData: Optional[str]
+    EnvironmentId: Optional[str]
 
     @classmethod
     def _deserialize(
@@ -62,6 +63,7 @@ class ResourceModel(BaseModel):
             Description=json_data.get("Description"),
             EBSVolumeSize=json_data.get("EBSVolumeSize"),
             UserData=json_data.get("UserData"),
+            EnvironmentId=json_data.get("EnvironmentId"),
         )
 
 
