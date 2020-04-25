@@ -45,12 +45,6 @@ class ResourceModel(BaseModel):
     Description: Optional[str]
     EBSVolumeSize: Optional[int]
     UserData: Optional[str]
-    DueDate: Optional[str]
-    ApprovalDate: Optional[str]
-    Memo: Optional["_Memo"]
-    SecondCopyOfMemo: Optional["_Memo"]
-    TestCode: Optional[str]
-    Authors: Optional[Sequence[str]]
 
     @classmethod
     def _deserialize(
@@ -68,38 +62,10 @@ class ResourceModel(BaseModel):
             Description=json_data.get("Description"),
             EBSVolumeSize=json_data.get("EBSVolumeSize"),
             UserData=json_data.get("UserData"),
-            DueDate=json_data.get("DueDate"),
-            ApprovalDate=json_data.get("ApprovalDate"),
-            Memo=Memo._deserialize(json_data.get("Memo")),
-            SecondCopyOfMemo=Memo._deserialize(json_data.get("SecondCopyOfMemo")),
-            TestCode=json_data.get("TestCode"),
-            Authors=json_data.get("Authors"),
         )
 
 
 # work around possible type aliasing issues when variable has same name as a model
 _ResourceModel = ResourceModel
-
-
-@dataclass
-class Memo(BaseModel):
-    Heading: Optional[str]
-    Body: Optional[str]
-
-    @classmethod
-    def _deserialize(
-        cls: Type["_Memo"],
-        json_data: Optional[Mapping[str, Any]],
-    ) -> Optional["_Memo"]:
-        if not json_data:
-            return None
-        return cls(
-            Heading=json_data.get("Heading"),
-            Body=json_data.get("Body"),
-        )
-
-
-# work around possible type aliasing issues when variable has same name as a model
-_Memo = Memo
 
 
