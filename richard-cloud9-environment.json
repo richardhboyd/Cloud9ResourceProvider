@@ -57,6 +57,11 @@
         "EnvironmentId": {
             "description": "Cloud9 Environment Id",
             "type": "string"
+        },
+        "OwnerArn": {
+            "description": "Owner of the CLoud9 Environment. If not specified, it will be the root of the account.",
+            "type": "string",
+            "pattern": "^arn:aws:(iam|sts)::\\d+:(root|(user\\/[\\w+=/:,.@-]{1,64}|federated-user\\/[\\w+=/:,.@-]{2,32}|assumed-role\\/[\\w+=:,.@-]{1,64}\\/[\\w+=,.@-]{1,64}))$"
         }
     },
     "additionalProperties": false,
@@ -64,7 +69,8 @@
         "InstanceType"
     ],
     "readOnlyProperties": [
-        "/properties/InstanceId"
+        "/properties/InstanceId",
+        "/properties/EnvironmentId"
     ],
     "primaryIdentifier": [
         "/properties/InstanceId"
