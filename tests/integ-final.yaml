@@ -4,7 +4,7 @@ Resources:
     Type: Richard::Cloud9::Environment
     Properties:
       InstanceType: c5.large
-      # EBSVolumeSize: 50
+      EBSVolumeSize: 50
       UserData: 
         Fn::Base64: |
           VERSION=3.7.4
