@@ -15,7 +15,7 @@
     "logicalResourceIdentifier": "MyLogicalId002"
   },
   "callbackContext": {
-    "ENVIRONMENT_ID": "bfd58fb2ce0846e2a50d33b3aa6210e8",
+    "ENVIRONMENT_ID": "d8a917e9a5bf42f7938368579e577893",
     "LOCAL_STATUS":"ENVIRONMENT_CREATED"
   }
 }

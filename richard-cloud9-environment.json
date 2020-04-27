@@ -41,8 +41,8 @@
         "Description": {
             "description": "The description of the TPS report is an optional element.",
             "type": "string",
-            "minimum": 20,
-            "maximum": 250
+            "minLength": 20,
+            "maxLength": 250
         },
         "EBSVolumeSize": {
             "description": "The size for the underlying EBS Volume.",
@@ -54,32 +54,14 @@
             "description": "Bootstrapping script to send to the Instance",
             "type": "string"
         },
-        "Async": {
-            "description": "When set to true, CFN won't wait for userdata to finish before returning",
-            "type": "boolean"
+        "EnvironmentId": {
+            "description": "Cloud9 Environment Id",
+            "type": "string"
         },
-        "ApprovalDate": {
-            "$ref": "#/definitions/InitechDateFormat"
-        },
-        "Memo": {
-            "$ref": "#/definitions/Memo"
-        },
-        "SecondCopyOfMemo": {
-            "description": "In case you didn't get the first one.",
-            "$ref": "#/definitions/Memo"
-        },
-        "TestCode": {
+        "OwnerArn": {
+            "description": "Owner of the CLoud9 Environment. If not specified, it will be the root of the account.",
             "type": "string",
-            "enum": [
-                "NOT_STARTED",
-                "CANCELLED"
-            ]
-        },
-        "Authors": {
-            "type": "array",
-            "items": {
-                "type": "string"
-            }
+            "pattern": "^arn:aws:(iam|sts)::\\d+:(root|(user\\/[\\w+=/:,.@-]{1,64}|federated-user\\/[\\w+=/:,.@-]{2,32}|assumed-role\\/[\\w+=:,.@-]{1,64}\\/[\\w+=,.@-]{1,64}))$"
         }
     },
     "additionalProperties": false,
@@ -87,35 +69,36 @@
         "InstanceType"
     ],
     "readOnlyProperties": [
-        "/properties/TPSCode"
+        "/properties/InstanceId",
+        "/properties/EnvironmentId"
     ],
     "primaryIdentifier": [
-        "/properties/TPSCode"
+        "/properties/InstanceId"
     ],
     "handlers": {
         "create": {
             "permissions": [
-                "initech:CreateReport"
+                "*"
             ]
         },
         "read": {
             "permissions": [
-                "initech:DescribeReport"
+                "*"
             ]
         },
         "update": {
             "permissions": [
-                "initech:UpdateReport"
+                "*"
             ]
         },
         "delete": {
             "permissions": [
-                "initech:DeleteReport"
+                "*"
             ]
         },
         "list": {
             "permissions": [
-                "initech:ListReports"
+                "*"
             ]
         }
     }

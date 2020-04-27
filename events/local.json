@@ -1,0 +1,9 @@
+{
+    "desiredResourceState": {
+      "InstanceType": "t2.micro",
+      "EBSVolumeSize": "50",
+      "UserData": "VkVSU0lPTj0zLjcuNAp5dW0gdXBkYXRlIC15Cnl1bSBpbnN0YWxsIGdjYyBvcGVuc3NsLWRldmVsIGJ6aXAyLWRldmVsIGxpYmZmaS1kZXZlbCAteQp3Z2V0IGh0dHBzOi8vd3d3LnB5dGhvbi5vcmcvZnRwL3B5dGhvbi8ke1ZFUlNJT059L1B5dGhvbi0ke1ZFUlNJT059LnRnegp0YXIgeHpmIFB5dGhvbi0ke1ZFUlNJT059LnRnegpjZCBQeXRob24tJHtWRVJTSU9OfQouL2NvbmZpZ3VyZSAtLWVuYWJsZS1vcHRpbWl6YXRpb25zCm1ha2UgYWx0aW5zdGFsbApjZCAuLi8KIyBSZW1vdmUgb2xkIHN5bWxpbmtzCnJtIC1yZiAvZXRjL2FsdGVybmF0aXZlcy9waXAKcm0gLXJmIC9ldGMvYWx0ZXJuYXRpdmVzL3B5dGhvbgojIG1ha2UgbmV3IHN5bWxpbmtzCmxuIC1zIC91c3IvbG9jYWwvYmluL3BpcCR7VkVSU0lPTjowOjN9IC9ldGMvYWx0ZXJuYXRpdmVzL3BpcApsbiAtcyAvdXNyL2xvY2FsL2Jpbi9weXRob24ke1ZFUlNJT046MDozfSAvZXRjL2FsdGVybmF0aXZlcy9weXRob24K",
+      "OwnerArn": "arn:aws:sts::472572436585:assumed-role/CrossAccountRole-RootRole-I9WFC0G4BERL/rhboyd-Isengard"
+    },
+    "logicalResourceIdentifier": "MyLogicalId004"
+}
