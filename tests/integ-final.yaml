@@ -56,4 +56,3 @@ Resources:
           chmod +x ./script.sh
           runuser -l  ec2-user -c './script.sh'
           echo "done" >> /home/ec2-user/environment/DONE.txt
-          
