@@ -71,7 +71,17 @@ Resources:
           echo "done" >> /home/ec2-user/environment/DONE.txt
 ````
 
+### Deploy Template
+If you save that template as `MyTemplate.yaml`, you can deploy it with the following command:
+````bash
+aws cloudformation deploy --stack-name MyCustomCloud9 --template-file MyTemplate.yaml
+````
+
+This will deploy and set up your Cloud9 Environment and may return a success message before your userdata section has completed. Personally, I address this my having my userdata write a file in my `$HOME` directory when it finishes.
+
+---
 ## Developing
+This section is for making changes to the Resource Provider and most users shouldn't have to worry about this. It's just a collection of my notes.
 ````bash
 sudo echo "ec2-user ALL=(root:root) NOPASSWD:ALL" > /etc/sudoers.d/custom
 sudo -u root -s
@@ -118,9 +128,3 @@ cp ../cloudformation-cli-python-plugin/cloudformation-cli-python-lib-0.0.1.tar.g
 cfn submit --set-default
 aws cloudformation deploy --template-file tests/integ-final.yaml --stack-name LateOtter001
 ````
-
-Failures can be passed back to CloudFormation by either raising an exception from `cloudformation_cli_python_lib.exceptions`, or setting the ProgressEvent's `status` to `OperationStatus.FAILED` and `errorCode` to one of `cloudformation_cli_python_lib.HandlerErrorCode`. There is a static helper function, `ProgressEvent.failed`, for this common case.
-
-## What's with the type hints?
-
-We hope they'll be useful for getting started quicker with an IDE that support type hints. Type hints are optional - if your code doesn't use them, it will still work.
