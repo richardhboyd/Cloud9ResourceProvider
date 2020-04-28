@@ -1,3 +1,6 @@
+# DON'T USE IN PRODUCTION
+I haven't yet scoped down the IAM permissions and I do wayyyyy too much logging for any normal person to consider using this for any `real` work.
+
 # Richard::Cloud9::Environment
 
 ## Using
