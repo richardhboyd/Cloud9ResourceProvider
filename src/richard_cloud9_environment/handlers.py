@@ -58,8 +58,20 @@ else
   sudo growpart /dev/nvme0n1
   # Expand the size of the file system.
   sudo resize2fs /dev/nvme0n1p1
-fi
-    """
+fi"""
+
+def ssh_commands(secret_arn: str) -> str:
+    return f"""
+HOME_DIR=/home/ec2-user/
+# Add your private key
+aws secretsmanager get-secret-value --secret-id {secret_arn} --query "SecretString" --output text > ${{HOME_DIR}}.ssh/github
+
+#restrict the access to the keys
+chmod 400 ${{HOME_DIR}}.ssh/github
+
+echo "IdentityFile ${{HOME_DIR}}.ssh/github" > ${{HOME_DIR}}.ssh/config
+chmod 400 ${{HOME_DIR}}.ssh/config
+"""
 
 def get_name_from_request(request: ResourceHandlerRequest) -> str:
     if request.desiredResourceState.Name:
@@ -177,7 +189,11 @@ class Router(object):
             LOG.info("instance stopped. Attempting to get current UserData from {}".format(instance_id))
             get_userdata_response = ec2_client.describe_instance_attribute(Attribute='userData', InstanceId=instance_id)
             user_data = base64.b64decode(get_userdata_response['UserData']['Value']).decode("utf-8")
-            final_user_data = get_preamble() + user_data + base64.b64decode(request.desiredResourceState.UserData).decode("utf-8")
+            if request.desiredResourceState.SSHKeyLocation:
+                fetch_ssh_key: str = ssh_commands(request.desiredResourceState.SSHKeyLocation)
+            else:
+                fetch_ssh_key: str = ""
+            final_user_data = get_preamble() + fetch_ssh_key + user_data + base64.b64decode(request.desiredResourceState.UserData).decode("utf-8")
             ec2_client.modify_instance_attribute(InstanceId=instance_id, UserData={'Value': final_user_data})
             ec2_client.start_instances(InstanceIds=[instance_id])
             progress.callbackContext["LOCAL_STATUS"] = ProvisioningStatus.RESTARTED_INSTANCE

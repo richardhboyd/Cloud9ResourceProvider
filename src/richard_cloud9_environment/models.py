@@ -47,6 +47,7 @@ class ResourceModel(BaseModel):
     UserData: Optional[str]
     EnvironmentId: Optional[str]
     OwnerArn: Optional[str]
+    SSHKeyLocation: Optional[str]
 
     @classmethod
     def _deserialize(
@@ -66,6 +67,7 @@ class ResourceModel(BaseModel):
             UserData=json_data.get("UserData"),
             EnvironmentId=json_data.get("EnvironmentId"),
             OwnerArn=json_data.get("OwnerArn"),
+            SSHKeyLocation=json_data.get("SSHKeyLocation"),
         )
 
 

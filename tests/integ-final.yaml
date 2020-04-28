@@ -1,15 +1,14 @@
 AWSTemplateFormatVersion: 2010-09-09
 Resources:
-  MyC9Environment03:
+  JSIITest:
     Type: Richard::Cloud9::Environment
     Properties:
       InstanceType: c5.large
       EBSVolumeSize: 50
       OwnerArn: "arn:aws:sts::908752905784:assumed-role/CrossAccountRole-RootRole-1AYURKOCV4R8Y/rhboyd-Isengard"
+      SSHKeyLocation: "arn:aws:secretsmanager:us-west-2:908752905784:secret:dev/github/richardhboyd-A0wBeT"
       UserData: 
         Fn::Base64: |
-          sudo echo "ec2-user ALL=(root:root) NOPASSWD:ALL" > /etc/sudoers.d/custom
-          sudo -u root -s
           cd /
           VERSION=3.7.4
           yum update -y
@@ -26,7 +25,6 @@ Resources:
           # make new symlinks
           ln -s /usr/local/bin/pip${VERSION:0:3} /etc/alternatives/pip
           ln -s /usr/local/bin/python${VERSION:0:3} /etc/alternatives/python
-          exit
           cd /home/ec2-user/
           su -u ec2-user
           CI=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
@@ -41,4 +39,10 @@ Resources:
           brew install aws-sam-cli
           /home/linuxbrew/.linuxbrew/bin/sam
           ln -sf $(which sam) ~/.c9/bin/sam
-          exit
+          npm uninstall -g typescript
+          npm install -g typescript
+          tsc --version
+          git config --global user.name "Richard Boyd"
+          git config --global user.email rhboyd@amazon.com
+          echo "done" >> /home/ec2-user/DONE.txt
+          
