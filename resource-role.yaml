@@ -16,6 +16,8 @@ Resources:
               Service: resources.cloudformation.amazonaws.com
             Action: sts:AssumeRole
       Path: "/"
+      ManagedPolicyArns: 
+        - arn:aws:iam::aws:policy/AWSCloud9Administrator
       Policies:
         - PolicyName: ResourceTypePolicy
           PolicyDocument:
@@ -23,8 +25,18 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                - "*"
+                - "ec2:ModifyVolume"
                 Resource: "*"
+              - Effect: Allow
+                Action:
+                  - "ec2:DescribeInstances"
+                  - "ec2:StopInstances"
+                  - "ec2:StartInstances"
+                  - "ec2:DescribeInstanceAttribute"
+                  - "ec2:ModifyInstanceAttribute"
+                  - "ec2:DescribeInstanceAttribute"
+                Resource: "*"
+
 Outputs:
   ExecutionRoleArn:
     Value:

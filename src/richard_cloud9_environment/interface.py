@@ -1,24 +1,36 @@
-# import logging
-# from dataclasses import dataclass
-# from enum import Enum, auto
-# from typing import Any, List, Mapping, MutableMapping, Optional, Type
+import logging
+from dataclasses import dataclass
+import typing
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    MutableMapping,
+    Optional,
+    Type,
+    Union,
+)
+LOG = logging.getLogger(__name__)
+LOG.setLevel(logging.DEBUG)
 
-from enum import Enum, auto
-from typing import List
-
-class _AutoName(Enum):
+@dataclass
+class ProvisioningStatus(dict):
+    def __init__(self):
+        dict.__init__(self, Type=type(self).__name__)
     def __str__(self):
-        return '{}'.format(self.value)
+        return self.__class__
+    def _serialize(self) -> Mapping[str, Any]:
+        return {"Type": self.__class__}
+    @classmethod
+    def _deserialize(
+        cls: Type["ProvisioningStatus"], json_data: Optional[Mapping[str, Any]]
+    ) -> Optional["ProvisioningStatus"]:
+        return globals()[json_data["Type"]]()
 
-    @staticmethod
-    def _generate_next_value_(
-        name: str, _start: int, _count: int, _last_values: List[str]
-    ) -> str:
-        return name
-
-class ProvisioningStatus(str, _AutoName):
-    ENVIRONMENT_CREATED = auto()
-    RESIZED_INSTANCE = auto()
-    STOPPED_INSTANCE = auto()
-    RESTARTED_INSTANCE = auto()
-    INSTANCE_STABLE = auto()
+class EnvironmentCreated(ProvisioningStatus): pass
+class ResizedInstance(ProvisioningStatus): pass
+class StoppedInstance(ProvisioningStatus): pass
+class RestartedInstance(ProvisioningStatus): pass
+class InstanceStable(ProvisioningStatus): pass

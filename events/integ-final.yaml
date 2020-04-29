@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: 2010-09-09
 Resources:
-  JSIITest:
+  IAMTest:
     Type: Richard::Cloud9::Environment
     Properties:
       InstanceType: c5.large

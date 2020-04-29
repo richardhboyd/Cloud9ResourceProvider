@@ -83,7 +83,11 @@
     "handlers": {
         "create": {
             "permissions": [
-                "*"
+                "cloud9:CreateEnvironmentEC2",
+                "ec2:DescribeInstances",
+                "ec2:ModifyVolume",
+                "ec2:ModifyInstanceAttribute",
+                "ec2:StartInstances"
             ]
         },
         "read": {
