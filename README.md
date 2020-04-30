@@ -6,7 +6,7 @@ I haven't yet scoped down the IAM permissions and I do wayyyyy too much logging 
 ## Using
 ````bash
 # Register the type
-REG_TOKEN=$(aws cloudformation register-type --type RESOURCE --type-name Richard::Cloud9::Environment --schema-handler-package s3://rhb-blog/provider-types/richard-cloud9-environment.zip)
+REG_TOKEN=$(aws cloudformation register-type --type RESOURCE --type-name Richard::Cloud9::Environment --schema-handler-package s3://rhb-blog/provider-types/richard-cloud9-environment.zip --query "RegistrationToken" --output text)
 
 aws cloudformation describe-type-registration --registration-token $REG_TOKEN  --query "ProgressStatus"
 ````
