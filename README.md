@@ -4,9 +4,60 @@ I haven't yet scoped down the IAM permissions and I do wayyyyy too much logging 
 # Richard::Cloud9::Environment
 
 ## Using
+First we're going to create the IAM Trust Policy and the Policy Document for the Role that CloudFormation will use to put log information into CloudWatch Logs
 ````bash
+cat <<EOT > Test-Role-Trust-Policy.json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": [
+          "cloudformation.amazonaws.com",
+          "resources.cloudformation.amazonaws.com"
+        ]
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+EOT
+
+cat <<EOT > CFNMetricsPolicy.json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:DescribeLogGroups",
+                "logs:DescribeLogStreams",
+                "logs:PutLogEvents",
+                "cloudwatch:ListMetrics",
+                "cloudwatch:PutMetricData"
+            ],
+            "Resource": "*",
+            "Effect": "Allow"
+        }
+    ]
+}
+EOT
+````
+
+Now we create the Role and attach the Policy Document:
+
+````bash
+ROLE_RESPONSE=$(aws iam create-role --role-name Test-Role --assume-role-policy-document file://Test-Role-Trust-Policy.json --output text --query "Role.[RoleName, Arn]")
+set -- $ROLE_RESPONSE
+ROLE_NAME=$1
+ROLE_ARN=$2
+
+aws iam put-role-policy --role-name $ROLE_NAME --policy-name LogAndMetricsDeliveryRolePolicy --policy-document file://CFNMetricsPolicy.json
+
 # Register the type
-REG_TOKEN=$(aws cloudformation register-type --type RESOURCE --type-name Richard::Cloud9::Environment --schema-handler-package s3://rhb-blog/provider-types/richard-cloud9-environment.zip --query "RegistrationToken" --output text)
+REG_TOKEN=$(aws cloudformation register-type --logging-config LogRoleArn=${ROLE_ARN},LogGroupName=MyLogGroup --type RESOURCE --type-name Richard::Cloud9::Environment --schema-handler-package s3://rhb-blog/provider-types/richard-cloud9-environment.zip --query "RegistrationToken" --output text)
 
 aws cloudformation describe-type-registration --registration-token $REG_TOKEN  --query "ProgressStatus"
 ````
@@ -16,22 +67,21 @@ Once this returns `"COMPLETE"` you are ready to use the Type.
 ````yaml
 AWSTemplateFormatVersion: 2010-09-09
 Resources:
-  JSIITest:
+  IAMTest:
     Type: Richard::Cloud9::Environment
     Properties:
       InstanceType: c5.large
       EBSVolumeSize: 50
-      OwnerArn: !Sub "arn:aws:sts::${AWS::AccountId}:assumed-role/[ROLE_NAME]/[SESSION_NAME]"
-      SSHKeyLocation: "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:your/secret/here"
+      OwnerArn: "arn:aws:sts::428089174615:assumed-role/CrossAccountRole-Isengard/rhboyd-Isengard"
       UserData: 
-        Fn::Base64: |
+        Fn::Base64: !Sub |
           cd /
           VERSION=3.7.4
           yum update -y
           yum install gcc openssl-devel bzip2-devel libffi-devel -y
-          wget https://www.python.org/ftp/python/${VERSION}/Python-${VERSION}.tgz
-          tar xzf Python-${VERSION}.tgz
-          cd Python-${VERSION}
+          wget https://www.python.org/ftp/python/${!VERSION}/Python-${!VERSION}.tgz
+          tar xzf Python-${!VERSION}.tgz
+          cd Python-${!VERSION}
           echo "Building Python"
           ./configure --enable-optimizations
           echo "Installing Python"
@@ -41,8 +91,8 @@ Resources:
           rm -rf /etc/alternatives/pip
           rm -rf /etc/alternatives/python
           # make new symlinks
-          ln -s /usr/local/bin/pip${VERSION:0:3} /etc/alternatives/pip
-          ln -s /usr/local/bin/python${VERSION:0:3} /etc/alternatives/python
+          ln -s /usr/local/bin/pip${!VERSION:0:3} /etc/alternatives/pip
+          ln -s /usr/local/bin/python${!VERSION:0:3} /etc/alternatives/python
           ## Java
           wget https://corretto.aws/downloads/latest/amazon-corretto-8-x64-linux-jdk.rpm
           yum localinstall amazon-corretto*.rpm
@@ -65,8 +115,12 @@ Resources:
           npm uninstall -g typescript
           npm install -g typescript
           tsc --version
-          git config --global user.name "YOUR NAME HERE"
-          git config --global user.email "YOUR EMAIL HERE"
+          git config --global user.name "Richard Boyd"
+          git config --global user.email rhboyd@amazon.com
+          aws secretsmanager get-secret-value --secret-id arn:aws:secretsmanager:us-west-2:428089174615:secret:dev/github/richardhboyd-vaNvg3 --query "SecretString" --output text --region ${AWS::Region}> ~/.ssh/github
+          chmod 400 ~/.ssh/github
+          echo "IdentityFile ~/.ssh/github" > ~/.ssh/config
+          chmod 400 ~/.ssh/config
           EOF
           echo "Running user-script"
           chmod +x ./script.sh

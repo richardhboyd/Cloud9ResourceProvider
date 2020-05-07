@@ -62,11 +62,6 @@
             "description": "Owner of the CLoud9 Environment. If not specified, it will be the root of the account.",
             "type": "string",
             "pattern": "^arn:aws:(iam|sts)::\\d+:(root|(user\\/[\\w+=/:,.@-]{1,64}|federated-user\\/[\\w+=/:,.@-]{2,32}|assumed-role\\/[\\w+=:,.@-]{1,64}\\/[\\w+=,.@-]{1,64}))$"
-        },
-        "SSHKeyLocation": {
-            "description": "ARN for the AWS Secrets Manager Secret that contains your SSH Key",
-            "type": "string",
-            "pattern": "^arn:(aws[a-zA-Z-]*)?:secretsmanager:[a-z]{2}((-gov)|(-iso(b?)))?-[a-z]+-\\d{1}:\\d{12}:secret:[\\/\\w+=:,.@-]{1,64}$"
         }
     },
     "additionalProperties": false,
@@ -78,7 +73,7 @@
         "/properties/EnvironmentId"
     ],
     "primaryIdentifier": [
-        "/properties/InstanceId"
+        "/properties/EnvironmentId"
     ],
     "handlers": {
         "create": {

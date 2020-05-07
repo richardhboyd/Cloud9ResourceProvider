@@ -1,3 +1,4 @@
+import inspect
 import logging
 from time import sleep
 import json
@@ -61,22 +62,10 @@ then
   sudo resize2fs /dev/xvda1
 else
   # Rewrite the partition table so that the partition takes up all the space that it can.
-  sudo growpart /dev/nvme0n1
+  sudo growpart /dev/nvme0n1 1
   # Expand the size of the file system.
   sudo resize2fs /dev/nvme0n1p1
-fi"""
-
-def ssh_commands(secret_arn: str) -> str:
-    return f"""
-HOME_DIR=/home/ec2-user/
-# Add your private key
-aws secretsmanager get-secret-value --secret-id {secret_arn} --query "SecretString" --output text > ${{HOME_DIR}}.ssh/github
-
-#restrict the access to the keys
-chmod 400 ${{HOME_DIR}}.ssh/github
-
-echo "IdentityFile ${{HOME_DIR}}.ssh/github" > ${{HOME_DIR}}.ssh/config
-chmod 400 ${{HOME_DIR}}.ssh/config
+fi
 """
 
 def get_name_from_request(request: ResourceHandlerRequest) -> str:
@@ -126,6 +115,7 @@ def create(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_co
     progress.callbackContext["ENVIRONMENT_ID"] = response['environmentId']
     progress.callbackContext["LOCAL_STATUS"] = EnvironmentCreated()
     progress.status = OperationStatus.IN_PROGRESS
+    progress.message = "Cloud9 Environment created"
     # progress.resourceModel: ResourceModel = model
     return progress
 
@@ -143,6 +133,12 @@ def handle_A(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_
     try: 
         ec2_client = session.client("ec2")
         instance_filter = ec2_client.describe_instances(Filters=[{'Name':'tag:aws:cloud9:environment', 'Values': [environment_id]}])
+        if len(instance_filter['Reservations']) < 1:
+            LOG.info("instance not available from `describe instances` call")
+            return progress
+        if len(instance_filter['Reservations'][0]['Instances']) < 1:
+            LOG.info("instance not available from `describe instances` call, part deux")
+            return progress
         instance_id = instance_filter['Reservations'][0]['Instances'][0]['InstanceId']
         instance_state = instance_filter['Reservations'][0]['Instances'][0]['State']['Name']
         c9_client = session.client("cloud9")
@@ -153,6 +149,7 @@ def handle_A(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_
             progress.resourceModel.InstanceId = instance_id
             progress.callbackContext["INSTANCE_ID"] = instance_id
             progress.callbackContext["LOCAL_STATUS"] = InstanceStable()
+            progress.message = "Cloud9 Environment is stable"
     except Exception as e:
         LOG.info('throwing: {}'.format(e))
         raise(e)
@@ -174,6 +171,7 @@ def handle_A(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_
         if request.desiredResourceState.EBSVolumeSize:
             resize_ebs(instance_id, int(progress.resourceModel.EBSVolumeSize), ec2_client)
         progress.callbackContext["LOCAL_STATUS"] = ResizedInstance()
+        progress.message = "Resized EBS Volume"
     except Exception as e:
         LOG.info('Can\'t resize instance: {}'.format(e))
         raise(e)
@@ -199,6 +197,7 @@ def handle_B(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_
         LOG.info("Instance Running, attempting to stop instance {}".format(instance_id))
         response = ec2_client.stop_instances(InstanceIds=[instance_id])
         progress.callbackContext["LOCAL_STATUS"] = StoppedInstance()
+        progress.message = "Underlying EC2 instance stopped"
     else:
         LOG.info("Instance isn't running yet")
     LOG.info("returning progress from RESIZED_INSTANCE {}".format(progress))
@@ -225,14 +224,11 @@ def handle_C(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_
         LOG.info("instance stopped. Attempting to get current UserData from {}".format(instance_id))
         get_userdata_response = ec2_client.describe_instance_attribute(Attribute='userData', InstanceId=instance_id)
         user_data = base64.b64decode(get_userdata_response['UserData']['Value']).decode("utf-8")
-        if request.desiredResourceState.SSHKeyLocation:
-            fetch_ssh_key: str = ssh_commands(request.desiredResourceState.SSHKeyLocation)
-        else:
-            fetch_ssh_key: str = ""
-        final_user_data = get_preamble() + fetch_ssh_key + user_data + base64.b64decode(request.desiredResourceState.UserData).decode("utf-8")
+        final_user_data = get_preamble() + user_data + base64.b64decode(request.desiredResourceState.UserData).decode("utf-8")
         ec2_client.modify_instance_attribute(InstanceId=instance_id, UserData={'Value': final_user_data})
         ec2_client.start_instances(InstanceIds=[instance_id])
         progress.callbackContext["LOCAL_STATUS"] = RestartedInstance()
+        progress.message = "Updated UserData"
         LOG.info("exiting STOPPED_INSTANCE State")
     LOG.info("returning progress from STOPPED_INSTANCE {}".format(progress))
     return progress
@@ -254,6 +250,7 @@ def handle_C(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_
     if instance_state == 'running':
         LOG.info("Instance is running")
         progress.status = OperationStatus.SUCCESS
+        progress.message = "Instance Restarted"
     LOG.info("returning progress from RESTARTED_INSTANCE {}".format(progress))
     return progress
 
@@ -307,7 +304,15 @@ def delete_handler(
         status=OperationStatus.IN_PROGRESS,
         resourceModel=model,
     )
-    progress.status = OperationStatus.SUCCESS
+    c9_client = session.client("cloud9")
+    try:
+        LOG.info(f"request: {request}")
+        LOG.info(f"request: {callback_context}")
+        c9_client.delete_environment(environmentId=request.desiredResourceState.EnvironmentId)
+        progress.status = OperationStatus.SUCCESS
+    except Exception as e:
+        LOG.info(f"failed to delete environment: {e}")
+        progress.status = OperationStatus.FAILED
     return progress
 
 
