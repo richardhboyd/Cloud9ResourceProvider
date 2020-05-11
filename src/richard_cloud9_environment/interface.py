@@ -30,7 +30,8 @@ class ProvisioningStatus(dict):
         return globals()[json_data["Type"]]()
 
 class EnvironmentCreated(ProvisioningStatus): pass
-class ResizedInstance(ProvisioningStatus): pass
-class StoppedInstance(ProvisioningStatus): pass
-class RestartedInstance(ProvisioningStatus): pass
+class RoleCreated(ProvisioningStatus): pass
+class ProfileAttached(ProvisioningStatus): pass
+class CommandSent(ProvisioningStatus): pass
 class InstanceStable(ProvisioningStatus): pass
+class ResizedInstance(ProvisioningStatus): pass

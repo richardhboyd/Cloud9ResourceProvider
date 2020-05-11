@@ -5,7 +5,17 @@ Resources:
     Properties:
       InstanceType: c5.large
       EBSVolumeSize: 50
-      OwnerArn: "arn:aws:sts::428089174615:assumed-role/CrossAccountRole-Isengard/rhboyd-Isengard"
+      OwnerArn: "arn:aws:sts::828260504299:assumed-role/CrossAccountRole-Isengard/rhboyd-Isengard"
+      Cloud9InstancePolicy:
+        PolicyName: "MyInstancePolicy"
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - "*"
+              Resource: 
+                - "*"
       UserData: 
         Fn::Base64: !Sub |
           cd /
@@ -29,6 +39,10 @@ Resources:
           ## Java
           wget https://corretto.aws/downloads/latest/amazon-corretto-8-x64-linux-jdk.rpm
           yum localinstall amazon-corretto*.rpm
+          ## Install Maven
+          wget https://www-us.apache.org/dist/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.tar.gz -P /tmp
+          sudo tar xf /tmp/apache-maven-3.6.3-bin.tar.gz -C /opt
+          sudo ln -s /opt/apache-maven-3.6.3 /opt/maven
           ## User Local stuff (brew HATES to be run by root)
           cd /home/ec2-user/
           echo "Creating user-script"
@@ -48,14 +62,29 @@ Resources:
           npm uninstall -g typescript
           npm install -g typescript
           tsc --version
+          # Install Hugo
+          wget https://github.com/gohugoio/hugo/releases/download/v0.62.1/hugo_0.62.1_Linux-64bit.tar.gz
+          tar -xvzf hugo_X.Y_osx-64bit.tgz
+          sudo mv hugo /usr/local/bin/
+          
+          # Set up git credentials
           git config --global user.name "Richard Boyd"
           git config --global user.email rhboyd@amazon.com
-          aws secretsmanager get-secret-value --secret-id arn:aws:secretsmanager:us-west-2:428089174615:secret:dev/github/richardhboyd-vaNvg3 --query "SecretString" --output text --region ${AWS::Region}> ~/.ssh/github
+          aws secretsmanager get-secret-value --secret-id dev/github/richardhboyd --query "SecretString" --output text --region ${AWS::Region}> ~/.ssh/github
           chmod 400 ~/.ssh/github
           echo "IdentityFile ~/.ssh/github" > ~/.ssh/config
           chmod 400 ~/.ssh/config
+          # Set up Maven Environment Variables
+          echo "export JAVA_HOME=/usr/lib/jvm/java-1.8.0-amazon-corretto" >> /home/ec2-user/.bashrc
+          echo "export M2_HOME=/opt/maven" >> /home/ec2-user/.bashrc
+          echo "export MAVEN_HOME=/opt/maven" >> /home/ec2-user/.bashrc
+          echo "export PATH=${M2_HOME}/bin:${PATH}" >> /home/ec2-user/.bashrc
           EOF
           echo "Running user-script"
           chmod +x ./script.sh
           runuser -l  ec2-user -c './script.sh'
-          echo "done" >> /home/ec2-user/environment/DONE.txt
+          cat <<'EOF' >> /home/ec2-user/environment/README.md
+          
+          ## Hugo
+          hugo serve --bind=0.0.0.0 -p 8080 -b PREVIEW_URL --appendPort=false --disableFastRender
+          EOF

@@ -18,42 +18,36 @@ from cloudformation_cli_python_lib import (
 
 from .interface import (
     ProvisioningStatus,
-    ResizedInstance,
-    RestartedInstance,
+    EnvironmentCreated,
+    RoleCreated,
+    ProfileAttached,
+    CommandSent,
     InstanceStable,
-    StoppedInstance,
-    EnvironmentCreated
+    ResizedInstance
 )
 
 from .models import ResourceHandlerRequest, ResourceModel
 
 # Use this logger to forward log messages to CloudWatch Logs.
 LOG = logging.getLogger(__name__)
-LOG.setLevel(logging.DEBUG)
+LOG.setLevel(logging.INFO)
 TYPE_NAME = "Richard::Cloud9::Environment"
 
 resource = Resource(TYPE_NAME, ResourceModel)
 test_entrypoint = resource.test_entrypoint
 
+def ssm_ready(ssm_client, instance_id):
+    try:
+        response = ssm_client.describe_instance_information(Filters=[
+            {'Key': 'InstanceIds', 'Values': [instance_id]}
+            ])
+        LOG.debug(response)
+        return True
+    except ssm_client.exceptions.InvalidInstanceId:
+        return False
+
 def get_preamble():
-    return """Content-Type: multipart/mixed; boundary="//"
-MIME-Version: 1.0
-
---//
-Content-Type: text/cloud-config; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="cloud-config.txt"
-
-#cloud-config
-cloud_final_modules:
-- [scripts-user, always]
-
---//
-Content-Type: text/x-shellscript; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="userdata.txt"
+    return """
 if [ $(readlink -f /dev/xvda) = "/dev/xvda" ]
 then
   # Rewrite the partition table so that the partition takes up all the space that it can.
@@ -87,6 +81,36 @@ def resize_ebs(instance_id: str, volume_size: int, ec2_client) -> None:
         LOG.info(e)
         raise Exception(e)
 
+def get_or_create_role(iam_client, role_name, instance_id, environment_id) -> str:
+    try:
+        response = iam_client.create_role(
+            Path='/',
+            RoleName=role_name,
+            AssumeRolePolicyDocument=json.dumps(
+                {
+                    'Version': '2012-10-17',
+                    'Statement': {
+                        'Effect': 'Allow',
+                        'Principal': {'Service': 'ec2.amazonaws.com'},
+                        'Action': 'sts:AssumeRole'
+                    }
+                }),
+            Description='EC2 Instance Profile Role',
+            Tags=[
+                {
+                    'Key': 'EC2 Instance',
+                    'Value': instance_id
+                },
+                {
+                    'Key': 'Cloud9 Environment',
+                    'Value': environment_id
+                },
+            ]
+        )
+    except iam_client.exceptions.EntityAlreadyExistsException as e:
+        response = iam_client.get_role(RoleName=role_name)
+    return response['Role']['RoleName']
+
 @singledispatch
 def create(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_context: MutableMapping[str, Any], session: SessionProxy):
     LOG.info("starting NEW RESOURCE with request\n{}".format(request))
@@ -116,11 +140,10 @@ def create(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_co
     progress.callbackContext["LOCAL_STATUS"] = EnvironmentCreated()
     progress.status = OperationStatus.IN_PROGRESS
     progress.message = "Cloud9 Environment created"
-    # progress.resourceModel: ResourceModel = model
     return progress
 
 @create.register(EnvironmentCreated)
-def handle_A(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_context: MutableMapping[str, Any], session: SessionProxy):
+def get_environment_info(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_context: MutableMapping[str, Any], session: SessionProxy):
     LOG.info("starting ENVIRONMENT_CREATED with callback_context\n{}\nand request\n{}".format(callback_context, request))
     progress: ProgressEvent = ProgressEvent(
         status=OperationStatus.IN_PROGRESS,
@@ -148,8 +171,12 @@ def handle_A(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_
             LOG.info("environment is ready and instance is running")
             progress.resourceModel.InstanceId = instance_id
             progress.callbackContext["INSTANCE_ID"] = instance_id
-            progress.callbackContext["LOCAL_STATUS"] = InstanceStable()
             progress.message = "Cloud9 Environment is stable"
+            if request.desiredResourceState.EBSVolumeSize:
+                progress.callbackContext["LOCAL_STATUS"] = InstanceStable()
+            else:
+                progress.callbackContext["LOCAL_STATUS"] = ResizedInstance()
+            
     except Exception as e:
         LOG.info('throwing: {}'.format(e))
         raise(e)
@@ -169,7 +196,7 @@ def handle_A(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_
     try: 
         ec2_client = session.client("ec2")
         if request.desiredResourceState.EBSVolumeSize:
-            resize_ebs(instance_id, int(progress.resourceModel.EBSVolumeSize), ec2_client)
+            resize_ebs(instance_id, int(request.desiredResourceState.EBSVolumeSize), ec2_client)
         progress.callbackContext["LOCAL_STATUS"] = ResizedInstance()
         progress.message = "Resized EBS Volume"
     except Exception as e:
@@ -178,80 +205,133 @@ def handle_A(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_
     LOG.info("returning progress from INSTANCE_STABLE {}".format(progress))
     return progress
 
+
 @create.register(ResizedInstance)
-def handle_B(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_context: MutableMapping[str, Any], session: SessionProxy):
-    LOG.info("starting RESIZED_INSTANCE with callback_context\n{}\nand request\n{}".format(callback_context, request))
+def create_iam_role(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_context: MutableMapping[str, Any], session: SessionProxy):
+    LOG.info("starting CREATE_IAM_ROLE with callback_context\n{}\nand request\n{}".format(callback_context, request))
     progress: ProgressEvent = ProgressEvent(
         status=OperationStatus.IN_PROGRESS,
         resourceModel=request.desiredResourceState,
         callbackContext=callback_context,
-        callbackDelaySeconds=15
+        callbackDelaySeconds=1
     )
-    LOG.info("starting RESIZED_INSTANCE with progress\n{}\nand request\n{}".format(progress, request))
+    environment_id = callback_context["ENVIRONMENT_ID"]
     instance_id = callback_context["INSTANCE_ID"]
-    LOG.info("instance id: {}".format(instance_id))
-    ec2_client = session.client("ec2")
-    instances = ec2_client.describe_instances(InstanceIds=[instance_id])
-    instance_state = instances['Reservations'][0]['Instances'][0]['State']['Name']
-    if instance_state == 'running':
-        LOG.info("Instance Running, attempting to stop instance {}".format(instance_id))
-        response = ec2_client.stop_instances(InstanceIds=[instance_id])
-        progress.callbackContext["LOCAL_STATUS"] = StoppedInstance()
-        progress.message = "Underlying EC2 instance stopped"
-    else:
-        LOG.info("Instance isn't running yet")
-    LOG.info("returning progress from RESIZED_INSTANCE {}".format(progress))
+    environment_id = callback_context["ENVIRONMENT_ID"]
+    environment_name = callback_context["ENVIRONMENT_NAME"]
+    iam_client = session.client("iam")
+    role_name = get_or_create_role(iam_client, f'{environment_name}-InstanceProfileRole', instance_id, environment_id)
+    if request.desiredResourceState.Cloud9InstancePolicy:
+        LOG.debug(f'attempting to add the following inline policy: {request.desiredResourceState.Cloud9InstancePolicy._serialize()}')
+        iam_client.put_role_policy(
+            RoleName=role_name,
+            PolicyName=request.desiredResourceState.Cloud9InstancePolicy.PolicyName,
+            PolicyDocument=json.dumps(request.desiredResourceState.Cloud9InstancePolicy.PolicyDocument._serialize())
+        )
+    iam_client.attach_role_policy(
+        RoleName=role_name,
+        PolicyArn='arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore'
+    )
+    iam_client.attach_role_policy(
+        RoleName=role_name,
+        PolicyArn='arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy'
+    )
+    # TODO Add IAM Permissions to read SecretsManager Secrets
+    
+    LOG.info("Creating Instance Profile")
+    create_instance_profile_response = iam_client.create_instance_profile(InstanceProfileName=f'{environment_name}-InstanceProfile')
+    LOG.info("Attatching Role to Instance Profile")
+    iam_client.add_role_to_instance_profile(
+        InstanceProfileName=f'{environment_name}-InstanceProfile',
+        RoleName=role_name
+    )
+    progress.callbackContext["LOCAL_STATUS"] = RoleCreated()
+    progress.callbackContext["INSTANCE_PROFILE_ARN"] = create_instance_profile_response['InstanceProfile']['Arn']
+    LOG.info("returning progress from CREATE_IAM_ROLE {}".format(progress))
     return progress
 
-@create.register(StoppedInstance)
-def handle_C(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_context: MutableMapping[str, Any], session: SessionProxy):
-    LOG.info("starting STOPPED_INSTANCE with callback_context\n{}\nand request\n{}".format(callback_context, request))
+@create.register(RoleCreated)
+def create_and_attach_instance_profile(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_context: MutableMapping[str, Any], session: SessionProxy):
+    LOG.info("starting ATTACH_INSTANCE_PROFILE with callback_context\n{}\nand request\n{}".format(callback_context, request))
     progress: ProgressEvent = ProgressEvent(
         status=OperationStatus.IN_PROGRESS,
         resourceModel=request.desiredResourceState,
         callbackContext=callback_context,
         callbackDelaySeconds=15
     )
+    instance_profile_arn = callback_context["INSTANCE_PROFILE_ARN"]
     instance_id = callback_context["INSTANCE_ID"]
-    ec2_client = session.client("ec2")
-    # Verify that the instance is stopped
-    instance_filter = ec2_client.describe_instances(Filters=[{'Name':'tag:aws:cloud9:environment', 'Values': [callback_context["ENVIRONMENT_ID"]]}])
-    instance_state = instance_filter['Reservations'][0]['Instances'][0]['State']['Name']
-    LOG.info("Instance State: {}".format(instance_state))
-    if instance_state != 'stopped':
-        LOG.info("instance is still running")
-    else:
-        LOG.info("instance stopped. Attempting to get current UserData from {}".format(instance_id))
-        get_userdata_response = ec2_client.describe_instance_attribute(Attribute='userData', InstanceId=instance_id)
-        user_data = base64.b64decode(get_userdata_response['UserData']['Value']).decode("utf-8")
-        final_user_data = get_preamble() + user_data + base64.b64decode(request.desiredResourceState.UserData).decode("utf-8")
-        ec2_client.modify_instance_attribute(InstanceId=instance_id, UserData={'Value': final_user_data})
-        ec2_client.start_instances(InstanceIds=[instance_id])
-        progress.callbackContext["LOCAL_STATUS"] = RestartedInstance()
-        progress.message = "Updated UserData"
-        LOG.info("exiting STOPPED_INSTANCE State")
-    LOG.info("returning progress from STOPPED_INSTANCE {}".format(progress))
+    try:
+        ec2_client = session.client('ec2')
+        associate_profile_response = ec2_client.associate_iam_instance_profile(
+            IamInstanceProfile={'Arn': instance_profile_arn},
+            InstanceId=instance_id
+        )
+        callback_context["ASSOCIATION_ID"] = associate_profile_response['IamInstanceProfileAssociation']['AssociationId']
+        progress.callbackContext["LOCAL_STATUS"] = ProfileAttached()
+    except Exception as e:
+        print(e)
+    LOG.info("returning progress from ATTACH_INSTANCE_PROFILE {}".format(progress))
     return progress
 
-@create.register(RestartedInstance)
-def handle_C(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_context: MutableMapping[str, Any], session: SessionProxy):
-    LOG.info("starting RESTARTED_INSTANCE with callback_context\n{}\nand request\n{}".format(callback_context, request))
+@create.register(ProfileAttached)
+def send_command(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_context: MutableMapping[str, Any], session: SessionProxy):
+    LOG.info("starting SEND_COMMAND with callback_context\n{}\nand request\n{}".format(callback_context, request))
     progress: ProgressEvent = ProgressEvent(
         status=OperationStatus.IN_PROGRESS,
         resourceModel=request.desiredResourceState,
         callbackContext=callback_context,
-        callbackDelaySeconds=15
+        callbackDelaySeconds=60
     )
     instance_id = callback_context["INSTANCE_ID"]
-    ec2_client = session.client("ec2")
-    instances = ec2_client.describe_instances(InstanceIds=[instance_id])
-    LOG.info("Getting Instance State")
-    instance_state = instances['Reservations'][0]['Instances'][0]['State']['Name']
-    if instance_state == 'running':
-        LOG.info("Instance is running")
+    ssm_client = session.client('ssm')
+    
+    if not ssm_ready(ssm_client, instance_id):
+        progress.callbackDelaySeconds=15
+        return progress
+    if request.desiredResourceState.UserData:
+        commands = get_preamble() + base64.b64decode(request.desiredResourceState.UserData).decode("utf-8")
+    else:
+        commands = get_preamble()
+    
+    LOG.info("Sending command to %s : %s" % (instance_id, commands))
+    try:
+        send_command_response = ssm_client.send_command(
+            InstanceIds=[instance_id], 
+            DocumentName='AWS-RunShellScript', 
+            Parameters={'commands': commands.split('\n')},
+            CloudWatchOutputConfig={
+                'CloudWatchLogGroupName': f'ssm-output-{instance_id}',
+                'CloudWatchOutputEnabled': True
+            }
+        )
+        progress.callbackContext["RUN_COMMAND_ID"] = send_command_response['Command']['CommandId']
+        progress.callbackContext["LOCAL_STATUS"] = CommandSent()
+        # if progress.resourceModel.Async:
+        #     progress.status = OperationStatus.SUCCESS
+    except ssm_client.exceptions.InvalidInstanceId:
+        LOG.info("Failed to execute SSM command. This happens some times when the box isn't ready yet. we'll retry in a minute.")
+    LOG.info("returning progress from SEND_COMMAND {}".format(progress))
+    return progress
+
+@create.register(CommandSent)
+def stabilize(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_context: MutableMapping[str, Any], session: SessionProxy):
+    LOG.info("starting STABILIZED with callback_context\n{}\nand request\n{}".format(callback_context, request))
+    progress: ProgressEvent = ProgressEvent(
+        status=OperationStatus.IN_PROGRESS,
+        resourceModel=request.desiredResourceState,
+        callbackContext=callback_context,
+        callbackDelaySeconds=60
+    )
+    command_id = callback_context["RUN_COMMAND_ID"]
+    instance_id = callback_context["INSTANCE_ID"]
+    ssm_client = session.client('ssm')
+    response = ssm_client.get_command_invocation(CommandId=command_id, InstanceId=instance_id)
+    if response['Status'] in ['Pending', 'InProgress', 'Delayed']:
+        return progress
+    else:
         progress.status = OperationStatus.SUCCESS
-        progress.message = "Instance Restarted"
-    LOG.info("returning progress from RESTARTED_INSTANCE {}".format(progress))
+    LOG.info("returning progress from STABILIZED {}".format(progress))
     return progress
 
 @resource.handler(Action.CREATE)
@@ -266,16 +346,11 @@ def create_handler(
                 test_thing = ProvisioningStatus._deserialize(callback_context.get("LOCAL_STATUS"))
             else:
                 test_thing = None
-            LOG.info(type(test_thing))
-            LOG.info(type(callback_context.get("LOCAL_STATUS")))
             progress = create(test_thing, request, callback_context, session)
             LOG.info(f"returning from dispatch: {progress}")
             return progress
     except TypeError as e:
-        # exceptions module lets CloudFormation know the type of failure that occurred
         raise exceptions.InternalFailure(f"was not expecting type {e}")
-        # this can also be done by returning a failed progress event
-        # return ProgressEvent.failed(HandlerErrorCode.InternalFailure, f"was not expecting type {e}")
 
 
 @resource.handler(Action.UPDATE)

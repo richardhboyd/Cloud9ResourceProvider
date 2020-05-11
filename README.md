@@ -175,8 +175,12 @@ ln -sf $(which sam) ~/.c9/bin/sam
 ls -la ~/.c9/bin/sam
 
 pip install cloudformation-cli --user
-pip install git+https://github.com/aws-cloudformation/aws-cloudformation-rpdk-python-plugin.git#egg=cloudformation-cli-python-plugin --user
-git clone https://github.com/aws-cloudformation/cloudformation-cli-python-plugin.git
+
+#pip install git+https://github.com/aws-cloudformation/aws-cloudformation-rpdk-python-plugin.git#egg=cloudformation-cli-python-plugin --user
+# git clone https://github.com/aws-cloudformation/cloudformation-cli-python-plugin.git
+# Use this branch until it gets merged into master
+pip install git+https://github.com/jaymccon/cloudformation-cli-python-plugin.git@recast_fix#egg=cloudformation-cli-python-plugin --user
+git clone https://github.com/jaymccon/cloudformation-cli-python-plugin.git -b recast_fix
 cd cloudformation-cli-python-plugin
 ./package_lib.sh
 cd ../Cloud9ResourceProvider/
