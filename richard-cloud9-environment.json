@@ -20,7 +20,7 @@
           "type": "array",
           "items": { "$ref": "#/definitions/PolicyStatement" }
         }
-      }          
+      }
     },
     "Cloud9InstancePolicy": {
       "$comment": "Policy to apply to Cloud9 Instance",
@@ -62,7 +62,11 @@
     },
     "UserData": {
       "description": "Bootstrapping script to send to the Instance",
-      "type": "string"
+      "type": "object",
+      "properties": {
+        "Bucket": {"type": "string"},
+        "Object": {"type": "string"}
+      }
     },
     "EnvironmentId": {
       "description": "Cloud9 Environment Id",

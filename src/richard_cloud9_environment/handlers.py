@@ -62,6 +62,9 @@ else
 fi
 """
 
+def wrap_userdata_script(url: str):
+    return '\n/bin/bash -c "$(curl -fsSL {url})"\n'
+
 def get_name_from_request(request: ResourceHandlerRequest) -> str:
     if request.desiredResourceState.Name:
         return request.desiredResourceState.Name
@@ -290,7 +293,14 @@ def send_command(obj: ProvisioningStatus, request: ResourceHandlerRequest, callb
         progress.callbackDelaySeconds=15
         return progress
     if request.desiredResourceState.UserData:
-        commands = get_preamble() + base64.b64decode(request.desiredResourceState.UserData).decode("utf-8")
+        # commands = get_preamble() + base64.b64decode(request.desiredResourceState.UserData).decode("utf-8")
+        from io import BytesIO
+        s3 = session.resource('s3')
+        bucket = s3.Bucket('cloudformationmanageduploadinfrast-artifactbucket-7ygoyp8ggagf')
+        obj = bucket.Object('userdata.sh')
+        output = BytesIO()
+        obj.download_fileobj(output)
+        commands = get_preamble() + '\n' + output.getvalue().decode('utf-8') + '\n'
     else:
         commands = get_preamble()
     

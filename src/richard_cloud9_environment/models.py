@@ -44,7 +44,7 @@ class ResourceModel(BaseModel):
     InstanceType: Optional[str]
     Description: Optional[str]
     EBSVolumeSize: Optional[int]
-    UserData: Optional[str]
+    UserData: Optional["_UserData"]
     EnvironmentId: Optional[str]
     OwnerArn: Optional[str]
     Cloud9InstancePolicy: Optional["_Cloud9InstancePolicy"]
@@ -64,7 +64,7 @@ class ResourceModel(BaseModel):
             InstanceType=json_data.get("InstanceType"),
             Description=json_data.get("Description"),
             EBSVolumeSize=json_data.get("EBSVolumeSize"),
-            UserData=json_data.get("UserData"),
+            UserData=UserData._deserialize(json_data.get("UserData")),
             EnvironmentId=json_data.get("EnvironmentId"),
             OwnerArn=json_data.get("OwnerArn"),
             Cloud9InstancePolicy=Cloud9InstancePolicy._deserialize(json_data.get("Cloud9InstancePolicy")),
@@ -73,6 +73,28 @@ class ResourceModel(BaseModel):
 
 # work around possible type aliasing issues when variable has same name as a model
 _ResourceModel = ResourceModel
+
+
+@dataclass
+class UserData(BaseModel):
+    Bucket: Optional[str]
+    Object: Optional[str]
+
+    @classmethod
+    def _deserialize(
+        cls: Type["_UserData"],
+        json_data: Optional[Mapping[str, Any]],
+    ) -> Optional["_UserData"]:
+        if not json_data:
+            return None
+        return cls(
+            Bucket=json_data.get("Bucket"),
+            Object=json_data.get("Object"),
+        )
+
+
+# work around possible type aliasing issues when variable has same name as a model
+_UserData = UserData
 
 
 @dataclass
