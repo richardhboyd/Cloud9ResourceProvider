@@ -44,9 +44,10 @@ class ResourceModel(BaseModel):
     InstanceType: Optional[str]
     Description: Optional[str]
     EBSVolumeSize: Optional[int]
-    UserData: Optional[str]
+    UserData: Optional["_UserData"]
     EnvironmentId: Optional[str]
     OwnerArn: Optional[str]
+    Cloud9InstancePolicy: Optional["_Cloud9InstancePolicy"]
 
     @classmethod
     def _deserialize(
@@ -63,13 +64,104 @@ class ResourceModel(BaseModel):
             InstanceType=json_data.get("InstanceType"),
             Description=json_data.get("Description"),
             EBSVolumeSize=json_data.get("EBSVolumeSize"),
-            UserData=json_data.get("UserData"),
+            UserData=UserData._deserialize(json_data.get("UserData")),
             EnvironmentId=json_data.get("EnvironmentId"),
             OwnerArn=json_data.get("OwnerArn"),
+            Cloud9InstancePolicy=Cloud9InstancePolicy._deserialize(json_data.get("Cloud9InstancePolicy")),
         )
 
 
 # work around possible type aliasing issues when variable has same name as a model
 _ResourceModel = ResourceModel
+
+
+@dataclass
+class UserData(BaseModel):
+    Bucket: Optional[str]
+    Object: Optional[str]
+
+    @classmethod
+    def _deserialize(
+        cls: Type["_UserData"],
+        json_data: Optional[Mapping[str, Any]],
+    ) -> Optional["_UserData"]:
+        if not json_data:
+            return None
+        return cls(
+            Bucket=json_data.get("Bucket"),
+            Object=json_data.get("Object"),
+        )
+
+
+# work around possible type aliasing issues when variable has same name as a model
+_UserData = UserData
+
+
+@dataclass
+class Cloud9InstancePolicy(BaseModel):
+    PolicyName: Optional[str]
+    PolicyDocument: Optional["_PolicyDocument"]
+
+    @classmethod
+    def _deserialize(
+        cls: Type["_Cloud9InstancePolicy"],
+        json_data: Optional[Mapping[str, Any]],
+    ) -> Optional["_Cloud9InstancePolicy"]:
+        if not json_data:
+            return None
+        return cls(
+            PolicyName=json_data.get("PolicyName"),
+            PolicyDocument=PolicyDocument._deserialize(json_data.get("PolicyDocument")),
+        )
+
+
+# work around possible type aliasing issues when variable has same name as a model
+_Cloud9InstancePolicy = Cloud9InstancePolicy
+
+
+@dataclass
+class PolicyDocument(BaseModel):
+    Version: Optional[str]
+    Statement: Optional[Sequence["_PolicyStatement"]]
+
+    @classmethod
+    def _deserialize(
+        cls: Type["_PolicyDocument"],
+        json_data: Optional[Mapping[str, Any]],
+    ) -> Optional["_PolicyDocument"]:
+        if not json_data:
+            return None
+        return cls(
+            Version=json_data.get("Version"),
+            Statement=deserialize_list(json_data.get("Statement"), PolicyStatement),
+        )
+
+
+# work around possible type aliasing issues when variable has same name as a model
+_PolicyDocument = PolicyDocument
+
+
+@dataclass
+class PolicyStatement(BaseModel):
+    Effect: Optional[str]
+    Action: Optional[Sequence[str]]
+    Resource: Optional[Sequence[str]]
+
+    @classmethod
+    def _deserialize(
+        cls: Type["_PolicyStatement"],
+        json_data: Optional[Mapping[str, Any]],
+    ) -> Optional["_PolicyStatement"]:
+        if not json_data:
+            return None
+        return cls(
+            Effect=json_data.get("Effect"),
+            Action=json_data.get("Action"),
+            Resource=json_data.get("Resource"),
+        )
+
+
+# work around possible type aliasing issues when variable has same name as a model
+_PolicyStatement = PolicyStatement
 
 
