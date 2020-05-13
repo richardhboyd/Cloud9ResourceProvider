@@ -296,8 +296,8 @@ def send_command(obj: ProvisioningStatus, request: ResourceHandlerRequest, callb
         # commands = get_preamble() + base64.b64decode(request.desiredResourceState.UserData).decode("utf-8")
         from io import BytesIO
         s3 = session.resource('s3')
-        bucket = s3.Bucket('cloudformationmanageduploadinfrast-artifactbucket-7ygoyp8ggagf')
-        obj = bucket.Object('userdata.sh')
+        bucket = s3.Bucket(request.desiredResourceState.UserData.Bucket)
+        obj = bucket.Object(request.desiredResourceState.UserData.Object)
         output = BytesIO()
         obj.download_fileobj(output)
         commands = get_preamble() + '\n' + output.getvalue().decode('utf-8') + '\n'
