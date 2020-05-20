@@ -3,6 +3,7 @@ import logging
 from time import sleep
 import json
 import base64
+from .signer import create_AL2_environment
 from typing import Any, Mapping, MutableMapping, Optional
 from functools import singledispatch
 
@@ -123,16 +124,17 @@ def create(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_co
         callbackContext=callback_context,
         callbackDelaySeconds=15
     )
-    c9_client = session.client("cloud9")
     env_name = get_name_from_request(request)
     if request.desiredResourceState.OwnerArn:
         owner_arn = request.desiredResourceState.OwnerArn
     else:
         owner_arn = "arn:aws:iam::{}:root".format(session.client('sts').get_caller_identity()['Account'])
-    response = c9_client.create_environment_ec2(
-        name=env_name,
-        instanceType=request.desiredResourceState.InstanceType,
-        ownerArn=owner_arn
+    response = create_AL2_environment(
+        env_name=env_name, 
+        owner_arn=owner_arn, 
+        instance_type=request.desiredResourceState.InstanceType, 
+        credentials = session.session.get_credentials(), 
+        region='us-west-2'
     )
     LOG.info("environment id: {}".format(response['environmentId']))
     model: ResourceModel = request.desiredResourceState

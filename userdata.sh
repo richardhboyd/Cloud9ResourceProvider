@@ -1,24 +1,3 @@
-cd /
-VERSION=3.7.4
-yum update -y
-yum install gcc openssl-devel bzip2-devel libffi-devel -y
-wget --quiet https://www.python.org/ftp/python/${VERSION}/Python-${VERSION}.tgz
-tar xzf Python-${VERSION}.tgz
-cd Python-${VERSION}
-echo "Building Python"
-./configure --enable-optimizations
-echo "Installing Python"
-make altinstall
-cd ../
-# Remove old symlinks
-rm -rf /etc/alternatives/pip
-rm -rf /etc/alternatives/python
-# make new symlinks
-ln -s /usr/local/bin/pip${VERSION:0:3} /etc/alternatives/pip
-ln -s /usr/local/bin/python${VERSION:0:3} /etc/alternatives/python
-## Java
-wget --quiet https://corretto.aws/downloads/latest/amazon-corretto-8-x64-linux-jdk.rpm
-yum localinstall amazon-corretto*.rpm -y
 ## Install Maven
 wget --quiet https://www-us.apache.org/dist/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.tar.gz -P /tmp
 tar xf /tmp/apache-maven-3.6.3-bin.tar.gz -C /opt
