@@ -33,7 +33,7 @@ chmod 400 ~/.ssh/github
 echo "IdentityFile ~/.ssh/github" > ~/.ssh/config
 chmod 400 ~/.ssh/config
 # Set up Maven Environment Variables
-echo 'export JAVA_HOME=/usr/lib/jvm/java-1.8.0-amazon-corretto' >> /home/ec2-user/.bashrc
+echo 'export JAVA_HOME=/usr/lib/jvm/java-11-amazon-corretto.x86_64' >> /home/ec2-user/.bashrc
 echo 'export M2_HOME=/opt/maven' >> /home/ec2-user/.bashrc
 echo 'export MAVEN_HOME=/opt/maven' >> /home/ec2-user/.bashrc
 echo 'export PATH=${M2_HOME}/bin:${PATH}' >> /home/ec2-user/.bashrc

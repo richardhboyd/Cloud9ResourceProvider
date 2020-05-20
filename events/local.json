@@ -2,7 +2,7 @@
     "desiredResourceState": {
       "InstanceType": "t2.micro",
       "EBSVolumeSize": "50",
-      "OwnerArn": "arn:aws:sts::784907117618:assumed-role/CrossAccountRole-Isengard/rhboyd-Isengard",
+      "OwnerArn": "arn:aws:sts::072954315904:assumed-role/CrossAccountRole-Isengard/rhboyd-Isengard",
       "Cloud9InstancePolicy": {
         "PolicyName": "MyInstancePolicy",
         "PolicyDocument": {
@@ -17,8 +17,7 @@
       "UserData": {
         "Bucket": "cloudformationmanageduploadinfrast-artifactbucket-1omv9gdsrde06",
         "Object": "userdata.sh"
-      },
-      "OwnerArn": "arn:aws:sts::828260504299:assumed-role/CrossAccountRole-Isengard/rhboyd-Isengard"
+      }
     },
-    "logicalResourceIdentifier": "shortUserData001"
+    "logicalResourceIdentifier": "shortUserData008"
 }

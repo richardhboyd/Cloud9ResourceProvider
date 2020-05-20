@@ -125,5 +125,6 @@ dmypy.json
 
 # RPDK file
 richard-cloud9-environment.zip
-cloudformation-cli-python-lib-0.0.1.tar.gz
+#cloudformation-cli-python-lib-0.0.1.tar.gz
+service-2.json
 docs/

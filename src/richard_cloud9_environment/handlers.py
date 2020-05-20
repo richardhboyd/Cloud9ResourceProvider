@@ -39,11 +39,9 @@ test_entrypoint = resource.test_entrypoint
 
 def ssm_ready(ssm_client, instance_id):
     try:
-        response = ssm_client.describe_instance_information(Filters=[
-            {'Key': 'InstanceIds', 'Values': [instance_id]}
-            ])
-        LOG.debug(response)
-        return True
+        response = ssm_client.describe_instance_information(Filters=[{'Key': 'InstanceIds', 'Values': [instance_id]}])
+        LOG.info(response)
+        return len(response['InstanceInformationList'])>=1
     except ssm_client.exceptions.InvalidInstanceId:
         return False
 
@@ -133,8 +131,7 @@ def create(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_co
         env_name=env_name, 
         owner_arn=owner_arn, 
         instance_type=request.desiredResourceState.InstanceType, 
-        credentials = session.session.get_credentials(), 
-        region='us-west-2'
+        session = session.session
     )
     LOG.info("environment id: {}".format(response['environmentId']))
     model: ResourceModel = request.desiredResourceState
@@ -176,7 +173,8 @@ def get_environment_info(obj: ProvisioningStatus, request: ResourceHandlerReques
             LOG.info("environment is ready and instance is running")
             progress.resourceModel.InstanceId = instance_id
             progress.callbackContext["INSTANCE_ID"] = instance_id
-            progress.message = "Cloud9 Environment is stable"
+            progress.message = "Cloud9 Environment is stable",
+            progress.callbackDelaySeconds=0
             if request.desiredResourceState.EBSVolumeSize:
                 progress.callbackContext["LOCAL_STATUS"] = InstanceStable()
             else:
@@ -195,7 +193,7 @@ def handle_A(obj: ProvisioningStatus, request: ResourceHandlerRequest, callback_
         status=OperationStatus.IN_PROGRESS,
         resourceModel=request.desiredResourceState,
         callbackContext=callback_context,
-        callbackDelaySeconds=15
+        callbackDelaySeconds=0
     )
     instance_id = callback_context["INSTANCE_ID"]
     try: 
@@ -241,7 +239,6 @@ def create_iam_role(obj: ProvisioningStatus, request: ResourceHandlerRequest, ca
         RoleName=role_name,
         PolicyArn='arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy'
     )
-    # TODO Add IAM Permissions to read SecretsManager Secrets
     
     LOG.info("Creating Instance Profile")
     create_instance_profile_response = iam_client.create_instance_profile(InstanceProfileName=f'{environment_name}-InstanceProfile')
@@ -262,7 +259,7 @@ def create_and_attach_instance_profile(obj: ProvisioningStatus, request: Resourc
         status=OperationStatus.IN_PROGRESS,
         resourceModel=request.desiredResourceState,
         callbackContext=callback_context,
-        callbackDelaySeconds=15
+        callbackDelaySeconds=30
     )
     instance_profile_arn = callback_context["INSTANCE_PROFILE_ARN"]
     instance_id = callback_context["INSTANCE_ID"]
@@ -286,16 +283,15 @@ def send_command(obj: ProvisioningStatus, request: ResourceHandlerRequest, callb
         status=OperationStatus.IN_PROGRESS,
         resourceModel=request.desiredResourceState,
         callbackContext=callback_context,
-        callbackDelaySeconds=60
+        callbackDelaySeconds=0
     )
     instance_id = callback_context["INSTANCE_ID"]
     ssm_client = session.client('ssm')
     
     if not ssm_ready(ssm_client, instance_id):
-        progress.callbackDelaySeconds=15
+        progress.callbackDelaySeconds=90
         return progress
     if request.desiredResourceState.UserData:
-        # commands = get_preamble() + base64.b64decode(request.desiredResourceState.UserData).decode("utf-8")
         from io import BytesIO
         s3 = session.resource('s3')
         bucket = s3.Bucket(request.desiredResourceState.UserData.Bucket)
@@ -319,8 +315,6 @@ def send_command(obj: ProvisioningStatus, request: ResourceHandlerRequest, callb
         )
         progress.callbackContext["RUN_COMMAND_ID"] = send_command_response['Command']['CommandId']
         progress.callbackContext["LOCAL_STATUS"] = CommandSent()
-        # if progress.resourceModel.Async:
-        #     progress.status = OperationStatus.SUCCESS
     except ssm_client.exceptions.InvalidInstanceId:
         LOG.info("Failed to execute SSM command. This happens some times when the box isn't ready yet. we'll retry in a minute.")
     LOG.info("returning progress from SEND_COMMAND {}".format(progress))

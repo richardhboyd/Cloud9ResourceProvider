@@ -1,53 +1,54 @@
 import json
 import logging
-from botocore.auth import SigV4Auth
-from botocore.awsrequest import AWSRequest
-from requests import Session
+import botocore
+import boto3
+import os
+import errno
 import hashlib
 from datetime import datetime
 
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-def create_AL2_environment(env_name: str, owner_arn: str, instance_type: str, credentials, region: str):
-  s = Session()
-  ENDPOINT = f'https://cloud9.{region}.amazonaws.com/'
-  HEADERS = {
-    'Content-Type': 'application/x-amz-json-1.1',
-    'X-Amz-Target': 'AWSCloud9WorkspaceManagementService.CreateEnvironmentEC2'
-  }
-  timestamp = datetime.now().strftime("%Y/%m/%d-%H:%M:%S").encode('utf-8')
-  request_body = {
-      'name': env_name,
-      'clientRequestToken': hashlib.sha256(timestamp).hexdigest(),
-      'instanceType': instance_type,
-      'ideTemplateId': 'f5ec09dc16f0a23728e3cfee668658e8',
-      'automaticStopTimeMinutes': 30
-      
-  }
-  sigv4 = SigV4Auth(credentials, 'cloud9', region)
-  request = AWSRequest(method='POST', url=ENDPOINT, headers=HEADERS, data=json.dumps(request_body))
-  sigv4.add_auth(request)
-  prepped = request.prepare()
-  prepped.hooks = {}
-  prepped.path_url = "/"
-  response = s.send(prepped)
-  logger.info(f"Body: {prepped.body}\n\n")
-  logger.info(f"Headers: {prepped.headers}\n\n")
-  logger.info(f"Response: {response.text}\n")
-  logger.info(f"Response: {response.status_code}\n")
-  if response.status_code == 200:
-    return response.json()
-  else:
-    raise Exception
+def create_AL2_environment(env_name: str, owner_arn: str, instance_type: str, session):
+
+  json_file = "/".join(botocore.__file__.split('/')[:-1]) + "/data/cloud9/2017-09-23/service-2.json"
+  logger.warn(f"JSON File location: {json_file}")
+  with open(json_file) as service_file:
+    data = json.load(service_file)
+  
+  data['shapes']['CreateEnvironmentEC2Request']['members']['ideTemplateId'] = {"shape":"IdeTemplateId"}
+  data['shapes']['IdeTemplateId'] = {"type":"string", "pattern":"^[a-zA-Z0-9]{8,32}$"}
+  
+  output_file = f"/tmp/data/cloud9/2017-09-23/service-2.json"
+  logger.warn(f"Output File location: {output_file}")
+  if not os.path.exists(os.path.dirname(output_file)):
+      try:
+          os.makedirs(os.path.dirname(output_file))
+      except OSError as exc: # Guard against race condition
+          if exc.errno != errno.EEXIST:
+              raise
+  
+  with open(output_file, 'w+') as service_file:
+    json.dump(data, service_file)
+
+  os.environ['AWS_DATA_PATH'] = '/tmp/data/'
+  session._session._register_data_loader()
+  response = session.client('cloud9').create_environment_ec2(
+    ownerArn=owner_arn,
+    name=env_name,
+    instanceType=instance_type,
+    ideTemplateId="f5ec09dc16f0a23728e3cfee668658e8",
+    automaticStopTimeMinutes=30
+  )
+  return response
 
 if __name__ == "__main__":
   import boto3
   timestamp = datetime.now().strftime("%Y/%m/%d-%H:%M:%S").encode('utf-8')
   m = hashlib.sha256(timestamp).hexdigest()[:6]
   session = boto3.Session()
-  credentials = session.get_credentials().get_frozen_credentials()
-  identity = boto3.client('sts').get_caller_identity()
-  create_AL2_environment(env_name=f"TestEnv-{m}", owner_arn=identity['Arn'], instance_type="c5.large", credentials=credentials, region='us-west-2')
+  identity = session.client('sts').get_caller_identity()
+  logger.info(create_AL2_environment(env_name=f"TestEnv-{m}", owner_arn=identity['Arn'], instance_type="c5.large", session=session))
