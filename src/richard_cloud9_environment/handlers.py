@@ -173,7 +173,7 @@ def get_environment_info(obj: ProvisioningStatus, request: ResourceHandlerReques
             LOG.info("environment is ready and instance is running")
             progress.resourceModel.InstanceId = instance_id
             progress.callbackContext["INSTANCE_ID"] = instance_id
-            progress.message = "Cloud9 Environment is stable",
+            progress.message = "Cloud9 Environment is stable"
             progress.callbackDelaySeconds=0
             if request.desiredResourceState.EBSVolumeSize:
                 progress.callbackContext["LOCAL_STATUS"] = InstanceStable()
