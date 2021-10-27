@@ -1,141 +1,39 @@
-# DON'T USE IN PRODUCTION
-I haven't yet scoped down the IAM permissions and I do wayyyyy too much logging for any normal person to consider using this for any `real` work.
+# Richard::Cloud9::CustomEC2
 
-# Richard::Cloud9::Environment
+Congratulations on starting development! Next steps:
 
-## Using
-First we're going to create the IAM Trust Policy and the Policy Document for the Role that CloudFormation will use to put log information into CloudWatch Logs
-````bash
-cat <<EOT > Test-Role-Trust-Policy.json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Service": [
-          "cloudformation.amazonaws.com",
-          "resources.cloudformation.amazonaws.com"
-        ]
-      },
-      "Action": "sts:AssumeRole"
-    }
-  ]
-}
-EOT
+1. Write the JSON schema describing your resource, `richard-cloud9-customec2.json`
+2. Implement your resource handlers in `richard_cloud9_customec2/handlers.py`
 
-cat <<EOT > CFNMetricsPolicy.json
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Action": [
-                "logs:CreateLogGroup",
-                "logs:CreateLogStream",
-                "logs:DescribeLogGroups",
-                "logs:DescribeLogStreams",
-                "logs:PutLogEvents",
-                "cloudwatch:ListMetrics",
-                "cloudwatch:PutMetricData"
-            ],
-            "Resource": "*",
-            "Effect": "Allow"
-        }
-    ]
-}
-EOT
-````
+> Don't modify `models.py` by hand, any modifications will be overwritten when the `generate` or `package` commands are run.
 
-Now we create the Role and attach the Policy Document:
+Implement CloudFormation resource here. Each function must always return a ProgressEvent.
 
-````bash
-ROLE_RESPONSE=$(aws iam create-role --role-name Test-Role --assume-role-policy-document file://Test-Role-Trust-Policy.json --output text --query "Role.[RoleName, Arn]")
-set -- $ROLE_RESPONSE
-ROLE_NAME=$1
-ROLE_ARN=$2
+```python
+ProgressEvent(
+    # Required
+    # Must be one of OperationStatus.IN_PROGRESS, OperationStatus.FAILED, OperationStatus.SUCCESS
+    status=OperationStatus.IN_PROGRESS,
+    # Required on SUCCESS (except for LIST where resourceModels is required)
+    # The current resource model after the operation; instance of ResourceModel class
+    resourceModel=model,
+    resourceModels=None,
+    # Required on FAILED
+    # Customer-facing message, displayed in e.g. CloudFormation stack events
+    message="",
+    # Required on FAILED: a HandlerErrorCode
+    errorCode=HandlerErrorCode.InternalFailure,
+    # Optional
+    # Use to store any state between re-invocation via IN_PROGRESS
+    callbackContext={},
+    # Required on IN_PROGRESS
+    # The number of seconds to delay before re-invocation
+    callbackDelaySeconds=0,
+)
+```
 
-aws iam put-role-policy --role-name $ROLE_NAME --policy-name LogAndMetricsDeliveryRolePolicy --policy-document file://CFNMetricsPolicy.json
+Failures can be passed back to CloudFormation by either raising an exception from `cloudformation_cli_python_lib.exceptions`, or setting the ProgressEvent's `status` to `OperationStatus.FAILED` and `errorCode` to one of `cloudformation_cli_python_lib.HandlerErrorCode`. There is a static helper function, `ProgressEvent.failed`, for this common case.
 
-# Register the type
-REG_TOKEN=$(aws cloudformation register-type --logging-config LogRoleArn=${ROLE_ARN},LogGroupName=MyLogGroup --type RESOURCE --type-name Richard::Cloud9::Environment --schema-handler-package s3://rhb-blog/provider-types/richard-cloud9-environment.zip --query "RegistrationToken" --output text)
+## What's with the type hints?
 
-aws cloudformation describe-type-registration --registration-token $REG_TOKEN  --query "ProgressStatus"
-````
-
-Once this returns `"COMPLETE"` you are ready to use the Type.
-### Example Template
-````yaml
-AWSTemplateFormatVersion: 2010-09-09
-Resources:
-  IAMTest:
-    Type: Richard::Cloud9::Environment
-    Properties:
-      InstanceType: c5.large
-      EBSVolumeSize: 50
-      OwnerArn: "arn:aws:sts::428089174615:assumed-role/CrossAccountRole-Isengard/rhboyd-Isengard"
-      UserData: 
-        Bucket: 'rhb-blog' # Your bucket name here
-        Object: 'userdata/userdata.sh' # the path to your userdata script in your bucket here
-````
-
-### Deploy Template
-If you save that template as `MyTemplate.yaml`, you can deploy it with the following command:
-````bash
-aws cloudformation deploy --stack-name MyCustomCloud9 --template-file MyTemplate.yaml
-````
-
-This will deploy and set up your Cloud9 Environment and may return a success message before your userdata section has completed. Personally, I address this my having my userdata write a file in my `$HOME` directory when it finishes.
-
----
-## Developing
-This section is for making changes to the Resource Provider and most users shouldn't have to worry about this. It's just a collection of my notes.
-````bash
-sudo -u root -s
-VERSION=3.7.4
-yum update -y
-yum install gcc openssl-devel bzip2-devel libffi-devel -y
-wget https://www.python.org/ftp/python/${VERSION}/Python-${VERSION}.tgz
-tar xzf Python-${VERSION}.tgz
-cd Python-${VERSION}
-./configure --enable-optimizations
-make altinstall
-cd ../
-# Remove old symlinks
-rm -rf /etc/alternatives/pip
-rm -rf /etc/alternatives/python
-# make new symlinks
-ln -s /usr/local/bin/pip${VERSION:0:3} /etc/alternatives/pip
-ln -s /usr/local/bin/python${VERSION:0:3} /etc/alternatives/python
-exit
-````
-````bash
-CI=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
-test -d ~/.linuxbrew && eval $(~/.linuxbrew/bin/brew shellenv)
-test -d /home/linuxbrew/.linuxbrew && eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
-test -r ~/.bash_profile && echo "eval \$($(brew --prefix)/bin/brew shellenv)" >>~/.bash_profile
-echo "eval \$($(/home/linuxbrew/.linuxbrew/bin/brew --prefix)/bin/brew shellenv)" >>~/.profile
-npm uninstall -g aws-sam-local
-sudo pip uninstall aws-sam-cli
-sudo rm -rf $(which sam)
-brew tap aws/tap
-brew install aws-sam-cli
-ln -sf $(which sam) ~/.c9/bin/sam
-ls -la ~/.c9/bin/sam
-
-# Install the AWS CloudFormation CLI if you don't plan on installing any other plugins
-# pip install cloudformation-cli --user
-
-# pip install git+https://github.com/aws-cloudformation/aws-cloudformation-rpdk-python-plugin.git#egg=cloudformation-cli-python-plugin --user
-# git clone https://github.com/aws-cloudformation/cloudformation-cli-python-plugin.git
-
-# Use this branch until it gets merged into master
-pip install git+https://github.com/jaymccon/cloudformation-cli-python-plugin.git@recast_fix#egg=cloudformation-cli-python-plugin --user
-git clone https://github.com/jaymccon/cloudformation-cli-python-plugin.git -b recast_fix
-cd cloudformation-cli-python-plugin
-./package_lib.sh
-cd ../Cloud9ResourceProvider/
-cp ../cloudformation-cli-python-plugin/cloudformation-cli-python-lib-0.0.1.tar.gz .
-
-cfn submit --set-default
-aws cloudformation deploy --template-file events/integ-final.yaml --stack-name LateOtter001
-````
+We hope they'll be useful for getting started quicker with an IDE that support type hints. Type hints are optional - if your code doesn't use them, it will still work.

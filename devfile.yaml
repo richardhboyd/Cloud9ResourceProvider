@@ -1,0 +1,9 @@
+schemaVersion: 2.0.0
+metadata:
+  name: public-repository-2
+components:
+  - name: test
+    container:
+      image: public.ecr.aws/t5a3h6s3/rhboyd/build:latest
+      mountSources: true
+      command: ['sleep', 'infinity']
