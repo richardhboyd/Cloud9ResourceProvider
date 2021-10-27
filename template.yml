@@ -1,23 +1,24 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: AWS SAM template for the Richard::Cloud9::Environment resource type
+Description: AWS SAM template for the Richard::Cloud9::CustomEC2 resource type
 
 Globals:
   Function:
-    Timeout: 60  # docker start-up times can be long for SAM CLI
+    Timeout: 180  # docker start-up times can be long for SAM CLI
+    MemorySize: 256
 
 Resources:
   TypeFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: richard_cloud9_environment.handlers.resource
+      Handler: richard_cloud9_customec2.handlers.resource
       Runtime: python3.7
       CodeUri: build/
 
   TestEntrypoint:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: richard_cloud9_environment.handlers.test_entrypoint
+      Handler: richard_cloud9_customec2.handlers.test_entrypoint
       Runtime: python3.7
       CodeUri: build/
 
