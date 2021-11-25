@@ -31,6 +31,8 @@ class ProvisioningStatus(dict):
 
 class EnvironmentCreated(ProvisioningStatus): pass
 class RoleCreated(ProvisioningStatus): pass
+class NewProfileCreated(ProvisioningStatus): pass
+class DefaultProfileDetached(ProvisioningStatus): pass
 class ProfileAttached(ProvisioningStatus): pass
 class CommandSent(ProvisioningStatus): pass
 class InstanceStable(ProvisioningStatus): pass

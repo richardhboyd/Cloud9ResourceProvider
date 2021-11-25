@@ -30,14 +30,11 @@
     "properties": {
         "Name": {
             "description": "A TPS Code is automatically generated on creation and assigned as the unique identifier.",
-            "type": "string",
-            "pattern": "^[A-Z]{3,5}[0-9]{8}-[0-9]{4}$"
+            "type": "string"
         },
         "Description": {
             "description": "The title of the TPS report is a mandatory element.",
-            "type": "string",
-            "minLength": 20,
-            "maxLength": 250
+            "type": "string"
         },
         "InstanceType": {
             "description": "",
@@ -51,8 +48,8 @@
             "description": "",
             "type": "string",
             "enum": [
+                "AMAZON_LINUX",
                 "AMAZON_LINUX_2",
-                "AMAZON_LINUX_2012",
                 "UBUNTU_18_04"
             ]
         },
@@ -68,9 +65,22 @@
             "description": "",
             "type": "string"
         },
+        "PermissionsPolicy": {
+            "description": "Policy Arn for the policy to attach to the instance profile",
+            "type": "string"
+        },
         "EnvironmentId": {
             "description": "",
             "type": "string"
+        },
+        "BootstrapDocumentName": {
+            "description": "",
+            "type": "string"
+        },
+        "VolumeSize": {
+            "description": "Size for EBS Volume",
+            "exclusiveMinimum": 10,
+            "type": "integer"
         },
         "Includes": {
             "type": "array",
@@ -81,8 +91,6 @@
         "Tags": {
             "description": "An array of key-value pairs to apply to this resource.",
             "type": "array",
-            "uniqueItems": true,
-            "insertionOrder": false,
             "items": {
                 "$ref": "#/definitions/Tag"
             }
@@ -90,6 +98,7 @@
     },
     "additionalProperties": false,
     "required": [
+        "Owner",
         "InstanceType",
         "OperatingSystem"
     ],
@@ -103,27 +112,27 @@
     "handlers": {
         "create": {
             "permissions": [
-                "initech:CreateReport"
+                "*"
             ]
         },
         "read": {
             "permissions": [
-                "initech:DescribeReport"
+                "*"
             ]
         },
         "update": {
             "permissions": [
-                "initech:UpdateReport"
+                "*"
             ]
         },
         "delete": {
             "permissions": [
-                "initech:DeleteReport"
+                "*"
             ]
         },
         "list": {
             "permissions": [
-                "initech:ListReports"
+                "*"
             ]
         }
     }

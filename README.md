@@ -1,39 +1,55 @@
-# Richard::Cloud9::CustomEC2
+# AWSQS::Cloud9::CustomEC2
 
-Congratulations on starting development! Next steps:
-
-1. Write the JSON schema describing your resource, `richard-cloud9-customec2.json`
-2. Implement your resource handlers in `richard_cloud9_customec2/handlers.py`
-
-> Don't modify `models.py` by hand, any modifications will be overwritten when the `generate` or `package` commands are run.
-
-Implement CloudFormation resource here. Each function must always return a ProgressEvent.
-
-```python
-ProgressEvent(
-    # Required
-    # Must be one of OperationStatus.IN_PROGRESS, OperationStatus.FAILED, OperationStatus.SUCCESS
-    status=OperationStatus.IN_PROGRESS,
-    # Required on SUCCESS (except for LIST where resourceModels is required)
-    # The current resource model after the operation; instance of ResourceModel class
-    resourceModel=model,
-    resourceModels=None,
-    # Required on FAILED
-    # Customer-facing message, displayed in e.g. CloudFormation stack events
-    message="",
-    # Required on FAILED: a HandlerErrorCode
-    errorCode=HandlerErrorCode.InternalFailure,
-    # Optional
-    # Use to store any state between re-invocation via IN_PROGRESS
-    callbackContext={},
-    # Required on IN_PROGRESS
-    # The number of seconds to delay before re-invocation
-    callbackDelaySeconds=0,
-)
+Setting up a new environment
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install --upgrade pip
+python3 -m pip install -r ./requirements.txt
 ```
 
-Failures can be passed back to CloudFormation by either raising an exception from `cloudformation_cli_python_lib.exceptions`, or setting the ProgressEvent's `status` to `OperationStatus.FAILED` and `errorCode` to one of `cloudformation_cli_python_lib.HandlerErrorCode`. There is a static helper function, `ProgressEvent.failed`, for this common case.
+Testing the handler
+```bash
+cfn submit --dry-run && \
+python3 ./utils/credential_loader.py && \
+sam local invoke TestEntrypoint --event sam-tests/00_create.json
+```
 
-## What's with the type hints?
+Sample SSM Document to bootstrap the instance
+```yaml
+Resources:
+  SSMDocument:
+    Type: AWS::SSM::Document
+    Properties: 
+      Content: Yaml
+      DocumentType: Command
+      Content: 
+        schemaVersion: '2.2'
+        mainSteps:
+        - action: aws:runShellScript
+          name: C9bootstrap
+          inputs:
+            runCommand:
+            - "#!/bin/bash"
+            - date
+            - sudo -H -u ec2-user bash -c "touch ~/environment/done.txt"
+            - echo "Bootstrap completed with return code $?"
+```
 
-We hope they'll be useful for getting started quicker with an IDE that support type hints. Type hints are optional - if your code doesn't use them, it will still work.
+sample template to deploy a bootstrapped instance
+```yaml
+Resources:
+  MyCloud9Environment:
+    Type: Richard::Cloud9::CustomEC2
+    Properties:
+      BootstrapDocumentName: "SampleSSMDocument-SSMDocument-Aw2yPXJJ62J0"
+      InstanceType: "t2.micro"
+      Name: "vsztfeeeuihwcilh"
+      OperatingSystem: "AMAZON_LINUX_2"
+      Owner: "arn:aws:sts::537434832053:assumed-role/Feder08/redirect_session"
+      PermissionsPolicy: "arn:aws:iam::537434832053:policy/MyAdminPolicy"
+      Tags:
+        - Key: "ATAG"
+          Value: "AVALUE"
+      VolumeSize: 20
+```

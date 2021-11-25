@@ -1,0 +1,14 @@
+Resources:
+  MyCloud9Environment:
+    Type: Richard::Cloud9::CustomEC2
+    Properties:
+      BootstrapDocumentName: "SampleSSMDocument-SSMDocument-Aw2yPXJJ62J0"
+      InstanceType: "t2.micro"
+      Name: "vsztfeeeuihwcilh"
+      OperatingSystem: "AMAZON_LINUX_2"
+      Owner: "arn:aws:sts::537434832053:assumed-role/Feder08/redirect_session"
+      PermissionsPolicy: "arn:aws:iam::537434832053:policy/MyAdminPolicy"
+      Tags:
+        - Key: "ATAG"
+          Value: "AVALUE"
+      VolumeSize: 20
