@@ -48,9 +48,12 @@ class ResourceModel(BaseModel):
     IdleTimeout: Optional[str]
     Owner: Optional[str]
     Arn: Optional[str]
+    PermissionsPolicy: Optional[str]
     EnvironmentId: Optional[str]
+    BootstrapDocumentName: Optional[str]
+    VolumeSize: Optional[int]
     Includes: Optional[Sequence[str]]
-    Tags: Optional[AbstractSet["_Tag"]]
+    Tags: Optional[Sequence["_Tag"]]
 
     @classmethod
     def _deserialize(
@@ -70,9 +73,12 @@ class ResourceModel(BaseModel):
             IdleTimeout=json_data.get("IdleTimeout"),
             Owner=json_data.get("Owner"),
             Arn=json_data.get("Arn"),
+            PermissionsPolicy=json_data.get("PermissionsPolicy"),
             EnvironmentId=json_data.get("EnvironmentId"),
+            BootstrapDocumentName=json_data.get("BootstrapDocumentName"),
+            VolumeSize=json_data.get("VolumeSize"),
             Includes=json_data.get("Includes"),
-            Tags=set_or_none(json_data.get("Tags")),
+            Tags=deserialize_list(json_data.get("Tags"), Tag),
         )
 
 

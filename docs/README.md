@@ -19,6 +19,9 @@ To declare this entity in your AWS CloudFormation template, use the following sy
         "<a href="#operatingsystem" title="OperatingSystem">OperatingSystem</a>" : <i>String</i>,
         "<a href="#idletimeout" title="IdleTimeout">IdleTimeout</a>" : <i>String</i>,
         "<a href="#owner" title="Owner">Owner</a>" : <i>String</i>,
+        "<a href="#permissionspolicy" title="PermissionsPolicy">PermissionsPolicy</a>" : <i>String</i>,
+        "<a href="#bootstrapdocumentname" title="BootstrapDocumentName">BootstrapDocumentName</a>" : <i>String</i>,
+        "<a href="#volumesize" title="VolumeSize">VolumeSize</a>" : <i>Integer</i>,
         "<a href="#includes" title="Includes">Includes</a>" : <i>[ String, ... ]</i>,
         "<a href="#tags" title="Tags">Tags</a>" : <i>[ <a href="tag.md">Tag</a>, ... ]</i>
     }
@@ -37,6 +40,9 @@ Properties:
     <a href="#operatingsystem" title="OperatingSystem">OperatingSystem</a>: <i>String</i>
     <a href="#idletimeout" title="IdleTimeout">IdleTimeout</a>: <i>String</i>
     <a href="#owner" title="Owner">Owner</a>: <i>String</i>
+    <a href="#permissionspolicy" title="PermissionsPolicy">PermissionsPolicy</a>: <i>String</i>
+    <a href="#bootstrapdocumentname" title="BootstrapDocumentName">BootstrapDocumentName</a>: <i>String</i>
+    <a href="#volumesize" title="VolumeSize">VolumeSize</a>: <i>Integer</i>
     <a href="#includes" title="Includes">Includes</a>: <i>
       - String</i>
     <a href="#tags" title="Tags">Tags</a>: <i>
@@ -53,8 +59,6 @@ _Required_: No
 
 _Type_: String
 
-_Pattern_: <code>^[A-Z]{3,5}[0-9]{8}-[0-9]{4}$</code>
-
 _Update requires_: [No interruption](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt)
 
 #### Description
@@ -64,10 +68,6 @@ The title of the TPS report is a mandatory element.
 _Required_: No
 
 _Type_: String
-
-_Minimum_: <code>20</code>
-
-_Maximum_: <code>250</code>
 
 _Update requires_: [No interruption](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt)
 
@@ -89,11 +89,11 @@ _Update requires_: [No interruption](https://docs.aws.amazon.com/AWSCloudFormati
 
 #### OperatingSystem
 
-_Required_: No
+_Required_: Yes
 
 _Type_: String
 
-_Allowed Values_: <code>AMAZON_LINUX_2</code> | <code>AMAZON_LINUX_2012</code> | <code>UBUNTU_18_04</code>
+_Allowed Values_: <code>AMAZON_LINUX</code> | <code>AMAZON_LINUX_2</code> | <code>UBUNTU_18_04</code>
 
 _Update requires_: [No interruption](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt)
 
@@ -107,9 +107,37 @@ _Update requires_: [No interruption](https://docs.aws.amazon.com/AWSCloudFormati
 
 #### Owner
 
+_Required_: Yes
+
+_Type_: String
+
+_Update requires_: [No interruption](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt)
+
+#### PermissionsPolicy
+
+Policy Arn for the policy to attach to the instance profile
+
 _Required_: No
 
 _Type_: String
+
+_Update requires_: [No interruption](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt)
+
+#### BootstrapDocumentName
+
+_Required_: No
+
+_Type_: String
+
+_Update requires_: [No interruption](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt)
+
+#### VolumeSize
+
+Size for EBS Volume
+
+_Required_: No
+
+_Type_: Integer
 
 _Update requires_: [No interruption](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt)
 
